@@ -591,6 +591,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override
             public void onChildViewAttachedToWindow(@NonNull View v) {
                 v.setAlpha(tileAlpha(grid.getChildAdapterPosition(v)));
+                if (lampDim) dimTile(v, false);
             }
 
             @Override
@@ -824,11 +825,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (festive) applyFestiveSkin((TextView) btnInputs, (TextView) btnSettings);
         if (cfg.homeStyle == HomeStyle.CENTRE) applyCentreLine();
+        if (cfg.homeStyle == HomeStyle.LAMP) applyLamp();
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
+            if (lampDim) {
+                if (oldF != null) LampDim.set(oldF, true, true);
+                if (onTile) LampDim.set(newF, false, true);
+            }
         });
 
         packageFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
@@ -1916,6 +1922,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private String timeLeft(int minutes) {
         return minutes < 60 ? getString(R.string.time_left_min, minutes)
                 : getString(R.string.time_left_h_min, minutes / 60, minutes % 60);
+    }
+
+    // ---- Lamp (HomeStyle.LAMP) ----------------------------------------------------------------------
+
+    /** Lamp: every card and tile but the focused one dimmed into the warm room (LampDim). */
+    private boolean lampDim;
+
+    /** Lamp: the dim room. The lamp glow, the amber clock and the evening warmth come next. */
+    private void applyLamp() {
+        lampDim = true;
+        if (watchRow != null) watchRow.setDimCards(true);
+        // As in Centre Line, the next grid row starts well below the "more apps" hint, out of sight until Down.
+        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+        for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /** Dims a grid tile unless it has focus; white banners further. */
+    private void dimTile(View item, boolean animate) {
+        View card = item.findViewById(R.id.card);
+        if (card == null) return;
+        LampDim.apply(card, adapter.lightAt(grid.getChildAdapterPosition(item)), !card.isFocused(), animate);
     }
 
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------

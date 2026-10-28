@@ -291,6 +291,7 @@ final class WatchRow {
             }
         });
         container.addView(card);
+        if (dimCards) LampDim.apply(card, false, true, false);
         return card;
     }
 
@@ -360,6 +361,14 @@ final class WatchRow {
     /** A Continue watching card: the glass stays shown when focus moves onto one. */
     boolean owns(View v) {
         return cards.contains(v);
+    }
+
+    /** Lamp dims every card but the focused one (LampDim); off in every other look. */
+    private boolean dimCards;
+
+    void setDimCards(boolean dim) {
+        dimCards = dim;
+        for (View card : cards) LampDim.apply(card, false, dim && !card.isFocused(), false);
     }
 
     boolean hasFocus() {

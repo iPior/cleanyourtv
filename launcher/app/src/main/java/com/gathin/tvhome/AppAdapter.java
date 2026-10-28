@@ -78,6 +78,8 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int ambient;
         /** uniform_tiles card fill, top and bottom colour; null until sampled from the icon. */
         int[] backdrop;
+        /** Whether the banner is mostly white (Lamp dims those further); null until sampled. */
+        Boolean light;
 
         Entry(String label, ComponentName component, Drawable banner, Drawable icon) {
             this(APP, label, component, banner, icon, null, 0);
@@ -683,6 +685,35 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             e.ambient = uniformTiles && e.banner == null ? dominantColor(e.icon) : vividColor(e.banner != null ? e.banner : e.icon);
         }
         return e.ambient;
+    }
+
+    /** Whether the tile's banner is mostly white, sampled once per entry; icon tiles never are. */
+    boolean lightAt(int position) {
+        if (position < 0 || position >= items.size()) return false;
+        Entry e = items.get(position);
+        if (e.light == null) e.light = e.banner != null && meanLuminance(e.banner) > 0.7f;
+        return e.light;
+    }
+
+    /** The banner's average luminance, 0 to 1, from a 16 px copy. */
+    private static float meanLuminance(Drawable live) {
+        Drawable d = live.getConstantState() != null ? live.getConstantState().newDrawable().mutate() : live;
+        Rect saved = new Rect(d.getBounds());
+        int n = 16;
+        Bitmap bmp = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888);
+        d.setBounds(0, 0, n, n);
+        d.draw(new Canvas(bmp));
+        d.setBounds(saved);
+        float sum = 0f;
+        for (int y = 0; y < n; y++) {
+            for (int x = 0; x < n; x++) {
+                int p = bmp.getPixel(x, y);
+                // Transparent parts show the dark card behind them.
+                sum += Color.alpha(p) / 255f * (0.2126f * Color.red(p) + 0.7152f * Color.green(p) + 0.0722f * Color.blue(p)) / 255f;
+            }
+        }
+        bmp.recycle();
+        return sum / (n * n);
     }
 
     /** Share of the tile height the icon takes in uniform_tiles mode (onCreateViewHolder). */
