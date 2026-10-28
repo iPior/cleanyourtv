@@ -20,7 +20,8 @@
         <item>com.netflix.ninja</item>
         <item>com.amazon.amazonvideo.livingroom</item>
         <item>com.google.android.youtube.tv</item>
-        <item>in.startv.hotstar</item>
+        <item>org.jellyfin.androidtv</item>
+        <item>nl.giejay.android.tv.immich</item>
     </string-array>
     <!-- With fewer dock_apps than columns (or a dock app that is not installed), the free dock slots take
          the first grid apps, so the dock never shows a gap. false leaves them empty (#162); a theme can
@@ -34,7 +35,7 @@
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
-    <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
+    <string name="live_tv_package" translatable="false">com.tcl.tv</string>
 
     <!-- Open the Live TV app above the first time Home comes up after the TV is switched on, for sets that are
          mostly used for broadcast TV. Once per boot: Home after that stays Home. Can also be set with
@@ -328,6 +329,14 @@
          whose state the TV cannot be trusted with stays. Off by default: every input is listed. Can also be set
          with "inputs_connected_only" in a theme. -->
     <bool name="inputs_connected_only">false</bool>
+
+    <!-- A Continue watching row above the dock's top shelf: the programs other apps publish to Android TV's Watch Next,
+         newest first, one per dock column, with the poster and a progress bar; OK opens the program, and the row is
+         hidden when there is nothing to show. Needs android.permission.READ_TV_LISTINGS (asked for once, or
+         pm grant com.gathin.tvhome android.permission.READ_TV_LISTINGS). Posters on the web cannot load, as the
+         launcher has no network: those cards show the app's banner and the title (docs/watch-next.md). Can also be
+         set with "continue_watching" in a theme's config.json. -->
+    <bool name="continue_watching">false</bool>
     <!-- Names under every tile, not only the focused one: unfocused names stay dimmed, the focused one is full white.
          With dock_row the band grows down to hold the dock's names too. -->
     <bool name="always_show_names">false</bool>
@@ -360,7 +369,7 @@
 
     <!-- Tiles per row in the grid; the dock always has this many slots. Tiles are 180dp wide at 4 columns and
          shrink to fit from 5 up (about 144dp at 5, 117dp at 6 on a 1080p TV). -->
-    <integer name="columns">4</integer>
+    <integer name="columns">5</integer>
 
     <!-- Basic motion is on; advanced effects are opt-in in the launcher's own Settings screen. -->
     <bool name="animations">true</bool>
