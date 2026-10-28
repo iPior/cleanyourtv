@@ -1639,8 +1639,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onTileFocused(int position, View card) {
         if (watchCaption != null) watchCaption.animate().alpha(0f).setDuration(160).start();
-        // Grid tiles below the dock show their name where the dot would go.
-        dotOff = !(dockRow && (singleRow || position < COLUMNS));
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
         // Focus restored before the first layout (cold start): the tile has no size yet, and the glass
@@ -1755,7 +1753,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void onWatchFocused(View card, WatchNext.Program program) {
             if (card.getWidth() == 0) return;
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
-            dotOff = false;
             if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
@@ -1807,18 +1804,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- Centre Line (HomeStyle.CENTRE) ------------------------------------------------------------
 
-    /** Centre Line's dot under whatever has focus, and the show caption that follows the focused card; else null. */
-    private View focusDot;
+    /** Centre Line's caption naming the focused show; null in every other look. */
     private TextView watchCaption;
-    /** True while focus is on a grid tile below the dock, where Centre Line's dot stays hidden. */
-    private boolean dotOff;
     /** The dock row's decoration, or null without a dock row. */
     private DockDecoration dockDecoration;
     private NightSkyView nightSky;
 
     /**
-     * Centre Line: the clock and the date centred with no greeting, Inputs alone at the left end of the top bar, a
-     * small dot under the focused tile, the focused show's title under its card, and the day-to-night backdrop.
+     * Centre Line: the clock and the date centred with no greeting, Inputs alone at the left end of the top bar, the focused
+     * show's title under the row, and the day-to-night backdrop.
      */
     private void applyCentreLine() {
         greeting.setVisibility(View.GONE);
@@ -1867,20 +1861,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         nightSky.update();
 
-        focusDot = new View(this);
-        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
-        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        dot.setColor(0xFFEDEDF2);
-        focusDot.setBackground(dot);
-        focusDot.setAlpha(0f);
-        int size = Math.round(6 * density);
-        root.addView(focusDot, new FrameLayout.LayoutParams(size, size));
-        // The glass moves by springs, by the dock's scroll and by direct jumps: follow where it is drawn, every frame.
-        root.getViewTreeObserver().addOnPreDrawListener(() -> {
-            syncFocusDot();
-            return true;
-        });
-
         watchCaption = new TextView(this);
         watchCaption.setGravity(Gravity.CENTER_HORIZONTAL);
         watchCaption.setTextColor(0xFFEDEDF2);
@@ -1890,16 +1870,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setAlpha(0f);
         watchCaption.setFocusable(false);
         root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(640 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
-    }
-
-    /** Keeps the dot centred just under the glass and as visible as it is. */
-    private void syncFocusDot() {
-        float tx = glass.getX() + glass.getWidth() / 2f - focusDot.getWidth() / 2f;
-        float ty = glass.getY() + glass.getHeight() + 6 * density;
-        if (focusDot.getTranslationX() != tx) focusDot.setTranslationX(tx);
-        if (focusDot.getTranslationY() != ty) focusDot.setTranslationY(ty);
-        float a = dotOff ? 0f : glass.getAlpha();
-        if (focusDot.getAlpha() != a) focusDot.setAlpha(a);
     }
 
     /** Title and "Jellyfin · 18 min left" under the row, centred on the screen. */
