@@ -834,6 +834,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
+            if (horizonGlow != null && !onTile) horizonGlow.setColor(0, animations && !reducedMotion);
             if (framedCards) {
                 if (oldF != null) LampDim.set(oldF, true, true);
                 if (onTile) LampDim.set(newF, false, true);
@@ -1673,6 +1674,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // cinematic_white_focus). app_glow: every tile. In a single row every tile is the dock's kind.
         boolean coloured = (appGlow || cinematic && !cinematicWhiteFocus && (singleRow || position < COLUMNS)) && !festive;
         int accent = coloured ? adapter.ambientColorAt(position) : 0;
+        if (horizonGlow != null) horizonGlow.setColor(adapter.ambientColorAt(position), animations && !reducedMotion);
         Rect r = placeGlass(card, adapter.focusScale(), accent);
         float pad = 6f * density;
         View item = (View) card.getParent();
@@ -1773,6 +1775,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void onWatchFocused(View card, WatchNext.Program program) {
             if (card.getWidth() == 0) return;
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
+            if (horizonGlow != null) horizonGlow.setColor(pictureColor(card), animations && !reducedMotion);
             if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
@@ -2092,6 +2095,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- Horizon (HomeStyle.HORIZON) ----------------------------------------------------------------
 
     private HorizonSky horizonSky;
+    private HorizonGlow horizonGlow;
     /** Horizon's text: a warm white, softer for the date, the labels and the faded icons. */
     private static final int HORIZON_TEXT = 0xFFF4F2EE;
 
@@ -2114,6 +2118,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.addView(horizonSky, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         horizonSky.update();
+        horizonGlow = new HorizonGlow(this);
+        root.addView(horizonGlow, 1, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // The clock large and light with the date under it in plain case, as the mock-up stacks them.
         moveDateBelowClock();
@@ -2182,6 +2189,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setFocusable(false);
         root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(320 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /** A Continue watching card's colour, from its picture (the poster, or the app's banner until it loads). */
+    private static int pictureColor(View card) {
+        if (!(card instanceof ViewGroup)) return 0;
+        ViewGroup g = (ViewGroup) card;
+        for (int i = 0; i < g.getChildCount(); i++) {
+            View v = g.getChildAt(i);
+            if (v instanceof android.widget.ImageView && ((android.widget.ImageView) v).getDrawable() != null) {
+                return AppAdapter.vividColor(((android.widget.ImageView) v).getDrawable());
+            }
+        }
+        return 0;
     }
 
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------
