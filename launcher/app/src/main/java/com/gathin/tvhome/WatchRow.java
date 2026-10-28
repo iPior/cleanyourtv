@@ -385,7 +385,8 @@ final class WatchRow {
     }
 
     /** A look's own lettering for the row's label: capitals or not, size in sp, colour and letter spacing. */
-    void setLabelStyle(boolean caps, float sp, int color, float spacing) {
+    void setLabelStyle(boolean caps, float sp, int color, float spacing, Typeface typeface) {
+        label.setTypeface(typeface);
         label.setAllCaps(caps);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         label.setTextColor(color);

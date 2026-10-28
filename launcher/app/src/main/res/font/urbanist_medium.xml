@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Urbanist at weight 500, for Centre Line. Cut down to Western European letters, digits and punctuation, and
+     to weights 200 to 500, to stay under the APK size gate; Centre Line falls back to Outfit in locales whose
+     fonts.xml names a system family. -->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <font
+        android:font="@font/urbanist"
+        android:fontStyle="normal"
+        android:fontWeight="500"
+        android:fontVariationSettings="'wght' 500"
+        tools:targetApi="28" />
+</font-family>

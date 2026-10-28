@@ -20,4 +20,14 @@ final class UiFont {
         if (name.startsWith("res/")) return res.getFont(value.resourceId);
         return Typeface.create(name, Typeface.NORMAL);
     }
+
+    /**
+     * True where the locale draws with the bundled fonts, false where fonts.xml names a system family. A look's own
+     * font (Urbanist for Centre Line) has the same Latin-only glyphs as Outfit, so it follows this too.
+     */
+    static boolean bundled(Context context) {
+        TypedValue value = new TypedValue();
+        context.getResources().getValue(R.string.font_light, value, true);
+        return String.valueOf(value.string).startsWith("res/");
+    }
 }

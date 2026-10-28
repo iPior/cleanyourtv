@@ -25,6 +25,7 @@ import android.graphics.Paint;
 import android.graphics.RadialGradient;
 import android.graphics.Rect;
 import android.graphics.Shader;
+import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
@@ -1834,6 +1835,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rowLp.gravity = Gravity.CENTER_HORIZONTAL;
         TextView date = findViewById(R.id.date);
         date.setGravity(Gravity.CENTER_HORIZONTAL);
+        // Urbanist, as in the mock-up: thin clock, light AM/PM, medium date and labels. Outfit where the locale needs a
+        // system family (UiFont.bundled).
+        boolean urbanist = UiFont.bundled(this);
+        Typeface light = urbanist ? getResources().getFont(R.font.urbanist_light) : UiFont.get(this, R.string.font_light);
+        Typeface medium = urbanist ? getResources().getFont(R.font.urbanist_medium) : UiFont.get(this, R.string.font_medium);
+        if (urbanist) {
+            clock.setTypeface(getResources().getFont(R.font.urbanist_extralight));
+            ((TextView) findViewById(R.id.ampm)).setTypeface(light);
+            date.setTypeface(medium);
+        }
+        if (dockLabel != null) {
+            dockLabel.setTypeface(medium);
+            moreAppsHint.setTypeface(medium);
+        }
         ((LinearLayout.LayoutParams) ((View) date.getParent()).getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
 
         // Inputs on its own at the left end, level with the other buttons.
@@ -1854,7 +1869,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The next grid row starts well below the "more apps" hint, out of sight until Down.
         if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
 
-        if (watchRow != null) watchRow.setLabelStyle(false, 15f, 0x99FFFFFF, 0.04f);
+        if (watchRow != null) watchRow.setLabelStyle(false, 15f, 0x99FFFFFF, 0.04f, medium);
 
         nightSky = new NightSkyView(this);
         root.addView(nightSky, 0, new FrameLayout.LayoutParams(
@@ -1862,17 +1877,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         nightSky.update();
 
         watchCaption = new TextView(this);
-        watchCaption.setGravity(Gravity.CENTER_HORIZONTAL);
+        watchCaption.setGravity(Gravity.START);
         watchCaption.setTextColor(0xFFEDEDF2);
         watchCaption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
-        watchCaption.setTypeface(getResources().getFont(R.font.outfit_light));
+        watchCaption.setTypeface(urbanist ? medium : getResources().getFont(R.font.outfit_light));
         watchCaption.setMaxLines(2);
         watchCaption.setAlpha(0f);
         watchCaption.setFocusable(false);
         root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(640 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    /** Title and "Jellyfin · 18 min left" under the row, centred on the screen. */
+    /** Title and "Jellyfin · 18 min left" under the row, lined up with its left edge and the "Continue watching" label. */
     private void showWatchCaption(View card, WatchNext.Program program) {
         CharSequence app = program.pkg;
         try {
@@ -1891,8 +1906,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setText(text);
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
         root.offsetDescendantRectToMyCoords(card, r);
-        // On the centre line, like the clock, whichever card is focused.
-        watchCaption.setTranslationX((root.getWidth() - watchCaption.getLayoutParams().width) / 2f);
+        // At the row's left edge, whichever card is focused.
+        watchCaption.setTranslationX(firstTileLeft(r.left));
         watchCaption.setTranslationY(r.bottom + card.getHeight() * (AppAdapter.FOCUS_SCALE - 1f) / 2f + 20 * density);
         watchCaption.animate().alpha(1f).setDuration(180).start();
     }
@@ -1932,14 +1947,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Puts the label just over the dock's band and the hint just under it, lined up with the first dock tile. */
     private void showDockLabels(float left, float dockTop, float dockBottom) {
-        float x = left;
-        RecyclerView.ViewHolder first = grid.findViewHolderForAdapterPosition(0);
-        View card = first == null ? null : first.itemView.findViewById(R.id.card);
-        if (card != null && card.getWidth() > 0) {
-            Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
-            root.offsetDescendantRectToMyCoords(card, r);
-            x = r.left;
-        }
+        float x = firstTileLeft(left);
         int more = Math.max(0, adapter.movableCount() - COLUMNS);
         moreAppsHint.setText(more == 0 ? "" : "\u2193 " + getResources().getQuantityString(R.plurals.more_apps, more, more));
         dockLabel.setX(x);
@@ -1951,6 +1959,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (v.getAlpha() >= 1f) continue;
             if (animations && !reducedMotion) v.animate().alpha(1f).setDuration(200).start(); else v.setAlpha(1f);
         }
+    }
+
+    /** The first dock tile's left edge on screen, which the row labels line up with; fallback before it is laid out. */
+    private float firstTileLeft(float fallback) {
+        RecyclerView.ViewHolder first = grid.findViewHolderForAdapterPosition(0);
+        View card = first == null ? null : first.itemView.findViewById(R.id.card);
+        if (card == null || card.getWidth() == 0) return fallback;
+        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        return r.left;
     }
 
     private void hideDockLabels() {
