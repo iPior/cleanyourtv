@@ -21,6 +21,15 @@ final class LampDim extends Drawable {
     static final int DIM = 0xFF968A76, DIM_LIGHT = 0xFF6A6052;
     /** The lamp's amber, for the ring and the glow (LampGlow). */
     static final int GLOW = 0xFFE0A060;
+    /** The same in the full evening (LampRoom.evening): a deeper, more orange dim, and an ember glow. */
+    static final int DIM_EVENING = 0xFFA06A40, DIM_LIGHT_EVENING = 0xFF6E4228, GLOW_EVENING = 0xFFFF7428;
+    /** How far into the evening the room is, 0 to 1, shared by every card; set by Home each minute. */
+    static float evening;
+
+    /** The lamp's colour at the current evening, for the ring, the glow and the clock. */
+    static int glow() {
+        return Sky.lerpColor(GLOW, GLOW_EVENING, evening);
+    }
     private static final int FADE_MS = 400;
 
     private final Paint paint = new Paint();
@@ -74,11 +83,12 @@ final class LampDim extends Drawable {
     @Override
     public void draw(Canvas canvas) {
         if (level > 0f) {
-            paint.setColor(Sky.lerpColor(0xFFFFFFFF, light ? DIM_LIGHT : DIM, level));
+            int dim = light ? Sky.lerpColor(DIM_LIGHT, DIM_LIGHT_EVENING, evening) : Sky.lerpColor(DIM, DIM_EVENING, evening);
+            paint.setColor(Sky.lerpColor(0xFFFFFFFF, dim, level));
             canvas.drawRect(getBounds(), paint);
         }
         if (level < 1f) {
-            ring.setColor(Math.round((1f - level) * 0.85f * 255) << 24 | GLOW & 0x00FFFFFF);
+            ring.setColor(Math.round((1f - level) * 0.85f * 255) << 24 | glow() & 0x00FFFFFF);
             ringRect.set(getBounds());
             float r = AppAdapter.cornerRadius(getBounds().width(), density);
             canvas.drawRoundRect(ringRect, r, r, ring);

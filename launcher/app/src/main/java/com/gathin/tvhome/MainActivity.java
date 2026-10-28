@@ -382,6 +382,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (festive) updateWifiLabel();
             sky.update();
             if (nightSky != null) nightSky.update();
+            if (lampRoom != null) updateLampEvening();
             wallpaperPlayer.update();
             handler.postDelayed(this, MINUTE_MS);
         }
@@ -930,6 +931,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        // Lamp's evening at another hour, to check it by day: am start -n com.gathin.tvhome/.MainActivity
+        // --ef lamp_preview_hour 21 (a negative hour goes back to the clock). Only colours change.
+        if (lampRoom != null && intent != null && intent.hasExtra(LAMP_PREVIEW_HOUR)) {
+            float hour = intent.getFloatExtra(LAMP_PREVIEW_HOUR, -1f);
+            LampRoom.previewHour = hour < 0f ? Float.NaN : hour % 24f;
+            updateLampEvening();
+            return;
+        }
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
@@ -1939,6 +1948,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean lampDim;
 
     private LampGlow lampGlow;
+    private LampRoom lampRoom;
+    private static final String LAMP_PREVIEW_HOUR = "lamp_preview_hour";
     /** Lamp's top buttons, which the lamp lights when focused. */
     private final List<View> lampButtons = new ArrayList<>();
     /** Lamp's text: warm cream, and a dim warm grey for labels, the date and the caption's details. */
@@ -1952,20 +1963,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (watchRow != null) watchRow.setDimCards(true);
         // The glass still springs to each focus, unseen: the lamp follows it. Its spring frames redraw the lamp.
         glass.setVisibility(View.INVISIBLE);
+        lampRoom = new LampRoom(this);
+        root.addView(lampRoom, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         lampGlow = new LampGlow(this);
         lampGlow.follow(glass);
-        root.addView(lampGlow, 0, new FrameLayout.LayoutParams(1, 1));
+        root.addView(lampGlow, 1, new FrameLayout.LayoutParams(1, 1));
         root.post(() -> lampGlow.fitTo(root.getWidth()));
         springX.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
         springY.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
 
         // The clock in amber with the date beside it in the dim warm grey, no divider, in the mock-up's sizes.
         TextView clock = findViewById(R.id.clock);
-        clock.setTextColor(LampDim.GLOW);
         clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f);
         clock.setTypeface(UiFont.get(this, R.string.font_extralight));
         TextView ampm = findViewById(R.id.ampm);
-        ampm.setTextColor(LampDim.GLOW & 0x00FFFFFF | 0xCC000000);
         ampm.setTypeface(UiFont.get(this, R.string.font_light));
         // On the clock's baseline, as the mock-up has it, instead of a fixed gap above the row's bottom.
         LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) ampm.getLayoutParams();
@@ -1991,21 +2003,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             moreAppsHint.setTypeface(UiFont.get(this, R.string.font_light));
         }
 
-        // Inputs, Themes and Settings as thin outlined circles, amber when focused.
-        int[][] states = {{android.R.attr.state_focused}, {}};
-        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states, new int[]{LampDim.GLOW, LAMP_ICON});
+        // Inputs, Themes and Settings as thin outlined circles, amber when focused (styled in updateLampEvening).
         List<View> buttons = new ArrayList<>(topAppButtons);
         buttons.add(btnInputs);
         buttons.add(findViewById(R.id.btnSettings));
-        for (View b : buttons) {
-            if (!(b instanceof TextView)) continue;
-            lampButtons.add(b);
-            android.graphics.drawable.StateListDrawable ring = new android.graphics.drawable.StateListDrawable();
-            ring.addState(states[0], lampRing(LampDim.GLOW, 0x1FE0A060));
-            ring.addState(states[1], lampRing(LAMP_LINE, 0));
-            b.setBackground(ring);
-            ((TextView) b).setCompoundDrawableTintList(ink);
-        }
+        for (View b : buttons) if (b instanceof TextView) lampButtons.add(b);
 
         // One caption line under the shows, as Centre Line's but in the room's colours.
         watchCaption = new TextView(this);
@@ -2021,6 +2023,32 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // As in Centre Line, the next grid row starts well below the "more apps" hint, out of sight until Down.
         if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+        updateLampEvening();
+    }
+
+    /** Warms the room, the dim, the lamp, its ring and the clock to this minute's evening (LampRoom.evening). */
+    private void updateLampEvening() {
+        float k = LampRoom.eveningNow();
+        if (!lampRoom.update(k)) return;
+        LampDim.evening = k;
+        int glow = LampDim.glow();
+        lampGlow.setColor(glow);
+        ((TextView) findViewById(R.id.clock)).setTextColor(glow);
+        ((TextView) findViewById(R.id.ampm)).setTextColor(glow & 0x00FFFFFF | 0xCC000000);
+        int[][] states = {{android.R.attr.state_focused}, {}};
+        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states, new int[]{glow, LAMP_ICON});
+        for (View b : lampButtons) {
+            android.graphics.drawable.StateListDrawable ring = new android.graphics.drawable.StateListDrawable();
+            ring.addState(states[0], lampRing(glow, glow & 0x00FFFFFF | 0x1F000000));
+            ring.addState(states[1], lampRing(LAMP_LINE, 0));
+            b.setBackground(ring);
+            ((TextView) b).setCompoundDrawableTintList(ink);
+        }
+        for (int i = 0; i < grid.getChildCount(); i++) {
+            View card = grid.getChildAt(i).findViewById(R.id.card);
+            if (card != null && card.getForeground() != null) card.getForeground().invalidateSelf();
+        }
+        if (watchRow != null) watchRow.setDimCards(true);
     }
 
     /** A top button's circle: a 1.5 dp outline in line, filled with fill (0: none). */
