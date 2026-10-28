@@ -17,8 +17,8 @@ import android.view.View;
  * as the dim fades out. One multiplied rectangle, clipped by the card's rounded outline: no layer and no blur.
  */
 final class LampDim extends Drawable {
-    /** Sepia at about half brightness, and about a third for white tiles (the mock-up's filters). */
-    static final int DIM = 0xFF7A6450, DIM_LIGHT = 0xFF4E4034;
+    /** A warm grey at about 58% brightness, and about 40% for white tiles: the mock-up's filters as the TV shows them. */
+    static final int DIM = 0xFF968A76, DIM_LIGHT = 0xFF6A6052;
     /** The lamp's amber, for the ring and the glow (LampGlow). */
     static final int GLOW = 0xFFE0A060;
     private static final int FADE_MS = 400;

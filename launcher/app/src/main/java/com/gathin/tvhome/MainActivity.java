@@ -834,6 +834,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (lampDim) {
                 if (oldF != null) LampDim.set(oldF, true, true);
                 if (onTile) LampDim.set(newF, false, true);
+                lampGlow.light(lampButtons.contains(newF) ? newF : null);
             }
         });
 
@@ -1805,7 +1806,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = Math.max(top, r.bottom);
         }
         // Centre Line names the focused show under its card: leave room for two lines and the dock's label.
-        float captionRoom = watchCaption != null ? 64 * density : 0f;
+        float captionRoom = watchCaption == null ? 0f : (lampDim ? 44 : 64) * density;
         watchRow.showAbove(centers, w, h, shelfTop - 18 * density - captionRoom, top + 24 * density);
     }
 
@@ -1904,11 +1905,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String meta = app.toString();
         long left = program.duration > 0 && program.position > 0 ? (program.duration - program.position) / 60000L : -1;
         if (left > 0) meta += " \u00B7 " + timeLeft((int) left);
-        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(program.title).append('\n');
-        int start = text.length();
-        text.append(meta);
-        text.setSpan(new android.text.style.ForegroundColorSpan(0xFF6C6C7A), start, text.length(), 0);
-        text.setSpan(new android.text.style.RelativeSizeSpan(0.72f), start, text.length(), 0);
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(program.title);
+        if (lampDim) {
+            // Lamp: one line, "Title · Jellyfin · 18 min left", the part after the title dimmed.
+            int start = text.length();
+            text.append(" \u00B7 ").append(meta);
+            text.setSpan(new android.text.style.ForegroundColorSpan(LAMP_DIM_TEXT), start, text.length(), 0);
+        } else {
+            text.append('\n');
+            int start = text.length();
+            text.append(meta);
+            text.setSpan(new android.text.style.ForegroundColorSpan(0xFF6C6C7A), start, text.length(), 0);
+            text.setSpan(new android.text.style.RelativeSizeSpan(0.72f), start, text.length(), 0);
+        }
         watchCaption.setText(text);
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
         root.offsetDescendantRectToMyCoords(card, r);
@@ -1930,6 +1939,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean lampDim;
 
     private LampGlow lampGlow;
+    /** Lamp's top buttons, which the lamp lights when focused. */
+    private final List<View> lampButtons = new ArrayList<>();
+    /** Lamp's text: warm cream, and a dim warm grey for labels, the date and the caption's details. */
+    private static final int LAMP_TEXT = 0xFFE8D9C4, LAMP_DIM_TEXT = 0xFF7A6A58;
+    /** Lamp's outline for the top buttons, and their icons dimmed like the tiles until focused (then amber). */
+    private static final int LAMP_LINE = 0xFF2C231C, LAMP_ICON = 0xFF54493D;
 
     /** Lamp: the dim room, and the lamp glow in place of the glass. The amber clock and the evening warmth come next. */
     private void applyLamp() {
@@ -1943,9 +1958,78 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.post(() -> lampGlow.fitTo(root.getWidth()));
         springX.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
         springY.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
+
+        // The clock in amber with the date beside it in the dim warm grey, no divider, in the mock-up's sizes.
+        TextView clock = findViewById(R.id.clock);
+        clock.setTextColor(LampDim.GLOW);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f);
+        clock.setTypeface(UiFont.get(this, R.string.font_extralight));
+        TextView ampm = findViewById(R.id.ampm);
+        ampm.setTextColor(LampDim.GLOW & 0x00FFFFFF | 0xCC000000);
+        ampm.setTypeface(UiFont.get(this, R.string.font_light));
+        // On the clock's baseline, as the mock-up has it, instead of a fixed gap above the row's bottom.
+        LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) ampm.getLayoutParams();
+        alp.gravity = -1;
+        alp.bottomMargin = 0;
+        ampm.setLayoutParams(alp);
+        findViewById(R.id.clockDivider).setVisibility(View.GONE);
+        TextView date = findViewById(R.id.date);
+        date.setAllCaps(false);
+        date.setLetterSpacing(0.02f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        date.setTextColor(LAMP_DIM_TEXT);
+        date.setTypeface(UiFont.get(this, R.string.font_light));
+        ((ViewGroup.MarginLayoutParams) ((View) date.getParent()).getLayoutParams()).setMarginStart(Math.round(14 * density));
+
+        // "Continue watching" and "Apps" alike: mixed case in the dim warm grey; the hint lighter.
+        Typeface regular = UiFont.get(this, R.string.font_regular);
+        if (watchRow != null) watchRow.setLabelStyle(false, 15f, LAMP_DIM_TEXT, 0.04f, regular);
+        if (dockLabel != null) {
+            dockLabel.setTextColor(LAMP_DIM_TEXT);
+            dockLabel.setTypeface(regular);
+            moreAppsHint.setTextColor(LAMP_DIM_TEXT);
+            moreAppsHint.setTypeface(UiFont.get(this, R.string.font_light));
+        }
+
+        // Inputs, Themes and Settings as thin outlined circles, amber when focused.
+        int[][] states = {{android.R.attr.state_focused}, {}};
+        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states, new int[]{LampDim.GLOW, LAMP_ICON});
+        List<View> buttons = new ArrayList<>(topAppButtons);
+        buttons.add(btnInputs);
+        buttons.add(findViewById(R.id.btnSettings));
+        for (View b : buttons) {
+            if (!(b instanceof TextView)) continue;
+            lampButtons.add(b);
+            android.graphics.drawable.StateListDrawable ring = new android.graphics.drawable.StateListDrawable();
+            ring.addState(states[0], lampRing(LampDim.GLOW, 0x1FE0A060));
+            ring.addState(states[1], lampRing(LAMP_LINE, 0));
+            b.setBackground(ring);
+            ((TextView) b).setCompoundDrawableTintList(ink);
+        }
+
+        // One caption line under the shows, as Centre Line's but in the room's colours.
+        watchCaption = new TextView(this);
+        watchCaption.setGravity(Gravity.START);
+        watchCaption.setTextColor(LAMP_TEXT);
+        watchCaption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+        watchCaption.setTypeface(UiFont.get(this, R.string.font_light));
+        watchCaption.setSingleLine(true);
+        watchCaption.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        watchCaption.setAlpha(0f);
+        watchCaption.setFocusable(false);
+        root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(820 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
         // As in Centre Line, the next grid row starts well below the "more apps" hint, out of sight until Down.
         if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /** A top button's circle: a 1.5 dp outline in line, filled with fill (0: none). */
+    private GradientDrawable lampRing(int line, int fill) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(fill);
+        d.setStroke(Math.round(1.5f * density), line);
+        return d;
     }
 
     /** Dims a grid tile unless it has focus; white banners further. */
