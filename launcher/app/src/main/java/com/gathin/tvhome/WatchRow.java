@@ -96,7 +96,7 @@ final class WatchRow {
         label.setLetterSpacing(0.22f);
         label.setTextColor(0xB3FFFFFF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        label.setTypeface(Typeface.create(activity.getString(R.string.font_medium), Typeface.NORMAL));
+        label.setTypeface(activity.getResources().getFont(R.font.outfit_medium));
         container.addView(label, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
         // Under the glass, which is drawn last so it can sit over the focused tile.
@@ -233,7 +233,7 @@ final class WatchRow {
             t.setEllipsize(android.text.TextUtils.TruncateAt.END);
             t.setTextColor(0xFFFFFFFF);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-            t.setTypeface(Typeface.create(activity.getString(R.string.font_medium), Typeface.NORMAL));
+            t.setTypeface(activity.getResources().getFont(R.font.outfit_medium));
             t.setShadowLayer(4 * density, 0, 0, 0xCC000000);
             int pad = Math.round(10 * density);
             t.setPadding(pad, pad, pad, Math.round(16 * density));
@@ -377,8 +377,19 @@ final class WatchRow {
         return cards.get(Math.max(0, Math.min(column, cards.size() - 1))).requestFocus();
     }
 
+    /** Room for the label above the cards, from the label's top to the cards' top. */
+    static final float LABEL_ROOM_DP = 30f;
+
     private int labelH() {
-        return Math.round(30 * density);
+        return Math.round(LABEL_ROOM_DP * density);
+    }
+
+    /** A look's own lettering for the row's label: capitals or not, size in sp, colour and letter spacing. */
+    void setLabelStyle(boolean caps, float sp, int color, float spacing) {
+        label.setAllCaps(caps);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        label.setTextColor(color);
+        label.setLetterSpacing(spacing);
     }
 
     private float rowTop() {

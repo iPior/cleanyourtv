@@ -53,6 +53,16 @@ enum HomeStyle {
         this.keys = keys;
     }
 
+    /** App tiles' height against the usual 16:9; Centre Line's are shorter so the shows above stand out. */
+    float tileHeightScale() {
+        return this == CENTRE ? 0.8f : 1f;
+    }
+
+    /** The tile height scale for an optional style. */
+    static float tileHeightScale(HomeStyle style) {
+        return style == null ? 1f : style.tileHeightScale();
+    }
+
     /** The style with this id, or null for none or an id this version does not know. */
     static HomeStyle of(String id) {
         if (id == null) return null;

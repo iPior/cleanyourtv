@@ -622,7 +622,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Item height follows the tile size, which follows the columns and the rows that must fit (AppAdapter.tileWidthPx).
             int inner = (r - l) - grid.getPaddingLeft() - grid.getPaddingRight();
             int tileW = AppAdapter.tileWidthPx(inner, h, COLUMNS, rowsBelowDock, cfg.dockTitle, cfg.dockRow, density);
-            int itemH = AppAdapter.itemHeightPx(AppAdapter.tileHeightPx(tileW), density);
+            int itemH = AppAdapter.itemHeightPx(Math.round(AppAdapter.tileHeightPx(tileW) * HomeStyle.tileHeightScale(cfg.homeStyle)), density);
             int dockRow = itemH + (int) (AppAdapter.DOCK_EXTRA_DP * density);   // item height plus DockDecoration offsets
             int gridRows = itemH * rowsBelowDock;
             // Keep the hero below the header when the library is enabled on a short screen,
@@ -1785,7 +1785,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             root.offsetDescendantRectToMyCoords(card, r);
             centers[found++] = r.exactCenterX();
             w = card.getWidth();
-            h = card.getHeight();
+            h = AppAdapter.tileHeightPx(w);   // 16:9, even where a look makes the app tiles shorter
         }
         if (found == 0) {
             watchRow.hide();
@@ -1834,7 +1834,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         block.setGravity(Gravity.CENTER_HORIZONTAL);
         TextView clock = findViewById(R.id.clock);
         clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f);
-        ((LinearLayout.LayoutParams) ((View) clock.getParent()).getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
+        // The clock's row is as wide as the block in the layout: shrink it to the time and its AM/PM, so they centre too.
+        LinearLayout.LayoutParams rowLp = (LinearLayout.LayoutParams) ((View) clock.getParent()).getLayoutParams();
+        rowLp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        rowLp.gravity = Gravity.CENTER_HORIZONTAL;
         TextView date = findViewById(R.id.date);
         date.setGravity(Gravity.CENTER_HORIZONTAL);
         ((LinearLayout.LayoutParams) ((View) date.getParent()).getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
@@ -1856,6 +1859,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // The next grid row starts well below the "more apps" hint, out of sight until Down.
         if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+
+        if (watchRow != null) watchRow.setLabelStyle(false, 15f, 0x99FFFFFF, 0.04f);
 
         nightSky = new NightSkyView(this);
         root.addView(nightSky, 0, new FrameLayout.LayoutParams(
@@ -1880,11 +1885,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setGravity(Gravity.CENTER_HORIZONTAL);
         watchCaption.setTextColor(0xFFEDEDF2);
         watchCaption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
-        watchCaption.setTypeface(android.graphics.Typeface.create(getString(R.string.font_light), android.graphics.Typeface.NORMAL));
+        watchCaption.setTypeface(getResources().getFont(R.font.outfit_light));
         watchCaption.setMaxLines(2);
         watchCaption.setAlpha(0f);
         watchCaption.setFocusable(false);
-        root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(320 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(640 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
     /** Keeps the dot centred just under the glass and as visible as it is. */
@@ -1897,7 +1902,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (focusDot.getAlpha() != a) focusDot.setAlpha(a);
     }
 
-    /** Title and "Jellyfin · 18 min left" under the focused card, centred on it but kept inside the row's ends. */
+    /** Title and "Jellyfin · 18 min left" under the row, centred on the screen. */
     private void showWatchCaption(View card, WatchNext.Program program) {
         CharSequence app = program.pkg;
         try {
@@ -1916,20 +1921,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setText(text);
         Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
         root.offsetDescendantRectToMyCoords(card, r);
-        int w = watchCaption.getLayoutParams().width;
-        float x = r.exactCenterX() - w / 2f;
-        View first = grid.findViewHolderForAdapterPosition(0) == null ? null
-                : grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card);
-        float lo = 0, hi = root.getWidth() - w;
-        if (first != null) {
-            Rect f = new Rect(0, 0, first.getWidth(), first.getHeight());
-            root.offsetDescendantRectToMyCoords(first, f);
-            lo = f.left;
-            hi = root.getWidth() - f.left - w;
-        }
-        float cx = Math.max(lo, Math.min(hi, x));
-        watchCaption.setGravity(cx == lo ? Gravity.LEFT : cx == hi ? Gravity.RIGHT : Gravity.CENTER_HORIZONTAL);
-        watchCaption.setTranslationX(cx);
+        // On the centre line, like the clock, whichever card is focused.
+        watchCaption.setTranslationX((root.getWidth() - watchCaption.getLayoutParams().width) / 2f);
         watchCaption.setTranslationY(r.bottom + card.getHeight() * (AppAdapter.FOCUS_SCALE - 1f) / 2f + 20 * density);
         watchCaption.animate().alpha(1f).setDuration(180).start();
     }
@@ -1958,7 +1951,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         TextView v = new TextView(this);
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         v.setTextColor(0x99FFFFFF);
-        v.setTypeface(android.graphics.Typeface.create(getString(R.string.font_medium), android.graphics.Typeface.NORMAL));
+        v.setTypeface(getResources().getFont(R.font.outfit_medium));
         v.setLetterSpacing(0.04f);
         v.setSingleLine(true);
         v.setFocusable(false);
@@ -1980,10 +1973,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int more = Math.max(0, adapter.movableCount() - COLUMNS);
         moreAppsHint.setText(more == 0 ? "" : "\u2193 " + getResources().getQuantityString(R.plurals.more_apps, more, more));
         dockLabel.setX(x);
-        // Not laid out yet on the first dock focus: measure, so the label does not start on the band.
-        if (dockLabel.getHeight() == 0) dockLabel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        int labelH = dockLabel.getHeight() > 0 ? dockLabel.getHeight() : dockLabel.getMeasuredHeight();
-        dockLabel.setY(dockTop - 22 * density - labelH);
+        // The same distance from the label's top to the tiles as the Continue watching row's (WatchRow.LABEL_ROOM_DP).
+        dockLabel.setY(dockTop - WatchRow.LABEL_ROOM_DP * density);
         moreAppsHint.setX(x);
         moreAppsHint.setY(dockBottom + 22 * density);
         for (View v : new View[]{dockLabel, moreAppsHint}) {
