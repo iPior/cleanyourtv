@@ -153,4 +153,24 @@
          last opened, e.g. "5 minutes ago" or "yesterday, 9:40 pm". -->
     <string name="last_opened">Last opened %1$s</string>
     <string name="continue_watching">Continue watching</string>
+    <!-- Themes button (themes_button) and its list of built-in looks. -->
+    <string name="themes">Themes</string>
+    <string name="style_feature">Feature</string>
+    <string name="style_feature_desc">Cinema-style banner</string>
+    <string name="style_minutes">Minutes</string>
+    <string name="style_minutes_desc">Timeline of time left</string>
+    <string name="style_horizon">Horizon</string>
+    <string name="style_horizon_desc">Sky follows the time of day</string>
+    <string name="style_centre">Centre Line</string>
+    <string name="style_centre_desc">Calm and centred</string>
+    <string name="style_lamp">Lamp</string>
+    <string name="style_lamp_desc">Dim and warm for evenings</string>
+    <string name="style_none">Original</string>
+    <string name="style_none_desc">The launcher as configured</string>
+    <!-- dock_labels: the small label over the dock, and the hint under it; %1$d is the number of apps below. -->
+    <string name="dock_label">Apps</string>
+    <plurals name="more_apps">
+        <item quantity="one">%1$d more app</item>
+        <item quantity="other">%1$d more apps</item>
+    </plurals>
 </resources>

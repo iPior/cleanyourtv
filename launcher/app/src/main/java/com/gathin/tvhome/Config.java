@@ -176,6 +176,12 @@ final class Config {
     final boolean inputsConnectedOnly;
     /** A Continue watching row of other apps' Watch Next programs above the dock (config.xml / theme continue_watching). */
     final boolean continueWatching;
+    /** The built-in look picked with the Themes button, or null for none (HomeStyle, kept in Launcher settings' preferences). */
+    final HomeStyle homeStyle;
+    /** A Themes button in the top bar that picks a HomeStyle on the TV (config.xml / theme themes_button). */
+    final boolean themesButton;
+    /** A small "Apps" label over the dock and a "more apps" hint under it (config.xml / theme dock_labels). */
+    final boolean dockLabels;
     /** The Settings button opens the quick settings panel instead of the TV's Settings (settings_key_panel). */
     final boolean settingsKeyPanel;
     /** Home puts the remote's accessibility helpers back after a force stop (restore_key_services; ServiceRepair). */
@@ -274,7 +280,7 @@ final class Config {
                    List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
                    boolean keyFilter, boolean dockGlass, String glowStyle, boolean wallpaperCaptions,
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
-                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean continueWatching) {
+                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean continueWatching, HomeStyle homeStyle, boolean themesButton, boolean dockLabels) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -371,6 +377,9 @@ final class Config {
         this.powerOnHomeAlways = powerOnHomeAlways;
         this.inputsConnectedOnly = inputsConnectedOnly;
         this.continueWatching = continueWatching;
+        this.homeStyle = homeStyle;
+        this.themesButton = themesButton;
+        this.dockLabels = dockLabels;
         this.wifiStatusWarnings = wifiStatusWarnings;
         this.topBarApps = Collections.unmodifiableList(topBarApps);
         this.showGreeting = showGreeting;
@@ -480,6 +489,8 @@ final class Config {
         boolean powerOnHomeAlways = res.getBoolean(R.bool.power_on_home_always);
         boolean inputsConnectedOnly = res.getBoolean(R.bool.inputs_connected_only);
         boolean continueWatching = res.getBoolean(R.bool.continue_watching);
+        boolean themesButton = res.getBoolean(R.bool.themes_button);
+        boolean dockLabels = res.getBoolean(R.bool.dock_labels);
         boolean dockGlass = res.getBoolean(R.bool.dock_glass);
         boolean dockEvenPadding = res.getBoolean(R.bool.dock_even_padding);
         boolean dockBand = res.getBoolean(R.bool.dock_band);
@@ -508,7 +519,9 @@ final class Config {
         File dir = dir(ctx);
         File file = dir != null ? new File(dir, FILE_NAME) : null;
         boolean mounted = Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState());
-        JSONObject json = readOverlay(ctx, file, mounted);
+        // A style picked with the Themes button lies under the theme file: the theme still wins where both set a key.
+        HomeStyle homeStyle = HomeStyle.picked(ctx);
+        JSONObject json = HomeStyle.merge(homeStyle, readOverlay(ctx, file, mounted));
         if (json != null) {
             applied = true;
             dock = stringList(json, "dock_apps", dock);
@@ -586,6 +599,8 @@ final class Config {
             powerOnHomeAlways = bool(json, "power_on_home_always", powerOnHomeAlways);
             inputsConnectedOnly = bool(json, "inputs_connected_only", inputsConnectedOnly);
             continueWatching = bool(json, "continue_watching", continueWatching);
+            themesButton = bool(json, "themes_button", themesButton);
+            dockLabels = bool(json, "dock_labels", dockLabels);
             dockGlass = bool(json, "dock_glass", dockGlass);
             dockEvenPadding = bool(json, "dock_even_padding", dockEvenPadding);
             dockBand = bool(json, "dock_band", dockBand);
@@ -670,7 +685,7 @@ final class Config {
                 dockBand, cinematicDots, cinematicWhiteFocus, wifiStatusColor, cinematicScrim, cinematicArt, wallpaperMoods, gamepadPassthrough,
                 consumeVolumeKeys, powerOnHome, homeLongPressHome, wifiStatusWarnings, topBarApps, showGreeting, headerWhite, clockWallpaper,
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
-                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, continueWatching);
+                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, continueWatching, homeStyle, themesButton, dockLabels);
     }
 
     /**

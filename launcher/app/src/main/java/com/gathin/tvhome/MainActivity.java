@@ -465,6 +465,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // dock_title false: the name above the dock (and the cinematic lines under it) never shows; the glow
         // still follows the dock.
         if (!cfg.dockTitle) hero.setVisibility(View.GONE);
+        if (cfg.dockLabels && cfg.dockRow) setUpDockLabels();
         greeting = findViewById(R.id.greeting);
         clockBlock = findViewById(R.id.leftBlock);
         greetingColor = greeting.getCurrentTextColor();
@@ -741,6 +742,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         });
         btnLibraryTop.setVisibility(cfg.libraryButton && cfg.appLibrary ? View.VISIBLE : View.GONE);
         addTopBarApps(cfg.topBarApps, cfg.launchActions);
+        if (cfg.themesButton) addThemesButton(cfg.homeStyle);
         iconOnlyButtons = cfg.iconOnlyButtons;
         topMenu = cfg.topMenu;
         wifiIconOnly = iconOnlyButtons && cfg.wifiLabelWidth <= 0;
@@ -1661,6 +1663,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 else grid.smoothScrollBy(0, dy);
             }
             showHero(position, scroll ? r.top - dy : r.top);
+            if (dockLabel != null) showDockLabels(r.left, scroll ? r.top - dy : r.top, scroll ? r.bottom - dy : r.bottom);
         } else {
             // Below the dock (or in a plain grid) the glow follows the tile without the big name; letting it
             // fade out left the grid on plain black.
@@ -1788,6 +1791,66 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = Math.max(top, r.bottom);
         }
         watchRow.showAbove(centers, w, h, shelfTop - 18 * density, top + 24 * density);
+    }
+
+    // ---- dock labels (config.xml dock_labels) ----------------------------------------------------
+
+    /** dock_labels: "Apps" over the dock and "↓ N more apps" under it; null when off. */
+    private TextView dockLabel, moreAppsHint;
+
+    private void setUpDockLabels() {
+        dockLabel = dockLabelView(15f);
+        dockLabel.setText(R.string.dock_label);
+        moreAppsHint = dockLabelView(14f);
+        // Under the glass, wrapped to their text: a FrameLayout child is full-screen by default.
+        for (View v : new View[]{dockLabel, moreAppsHint}) root.addView(v, root.indexOfChild(glass),
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    private TextView dockLabelView(float sp) {
+        TextView v = new TextView(this);
+        v.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        v.setTextColor(0x99FFFFFF);
+        v.setTypeface(android.graphics.Typeface.create(getString(R.string.font_medium), android.graphics.Typeface.NORMAL));
+        v.setLetterSpacing(0.04f);
+        v.setSingleLine(true);
+        v.setFocusable(false);
+        v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        v.setAlpha(0f);
+        return v;
+    }
+
+    /** Puts the label just over the dock's band and the hint just under it, lined up with the first dock tile. */
+    private void showDockLabels(float left, float dockTop, float dockBottom) {
+        float x = left;
+        RecyclerView.ViewHolder first = grid.findViewHolderForAdapterPosition(0);
+        View card = first == null ? null : first.itemView.findViewById(R.id.card);
+        if (card != null && card.getWidth() > 0) {
+            Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+            root.offsetDescendantRectToMyCoords(card, r);
+            x = r.left;
+        }
+        int more = Math.max(0, adapter.movableCount() - COLUMNS);
+        moreAppsHint.setText(more == 0 ? "" : "\u2193 " + getResources().getQuantityString(R.plurals.more_apps, more, more));
+        dockLabel.setX(x);
+        // Not laid out yet on the first dock focus: measure, so the label does not start on the band.
+        if (dockLabel.getHeight() == 0) dockLabel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int labelH = dockLabel.getHeight() > 0 ? dockLabel.getHeight() : dockLabel.getMeasuredHeight();
+        dockLabel.setY(dockTop - 22 * density - labelH);
+        moreAppsHint.setX(x);
+        moreAppsHint.setY(dockBottom + 22 * density);
+        for (View v : new View[]{dockLabel, moreAppsHint}) {
+            if (v.getAlpha() >= 1f) continue;
+            if (animations && !reducedMotion) v.animate().alpha(1f).setDuration(200).start(); else v.setAlpha(1f);
+        }
+    }
+
+    private void hideDockLabels() {
+        if (dockLabel == null) return;
+        for (View v : new View[]{dockLabel, moreAppsHint}) {
+            v.animate().cancel();
+            if (animations && !reducedMotion) v.animate().alpha(0f).setDuration(160).start(); else v.setAlpha(0f);
+        }
     }
 
     // ---- top shelf -------------------------------------------------------------------------------
@@ -2071,6 +2134,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void showGlowOnly(int position) {
         if (watchRow != null) watchRow.hide();
+        hideDockLabels();
         int color = adapter.ambientColorAt(position);
         stopAmbientAnimation();
         hero.animate().cancel();
@@ -2098,6 +2162,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void hideHero() {
         if (watchRow != null) watchRow.hide();
+        hideDockLabels();
         if (!heroShown) return;
         stopAmbientAnimation();
         hero.animate().cancel();
@@ -2399,6 +2464,67 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (button != btnInputs && button.getVisibility() == View.VISIBLE) return button;
         }
         return findViewById(R.id.btnSettings);
+    }
+
+    /**
+     * themes_button: a palette button just before Settings (after it in the Hebrew bar) that lists the HomeStyle
+     * looks. It joins topAppButtons so it gets the same key handling and focus scaling as the other round buttons.
+     */
+    private void addThemesButton(HomeStyle current) {
+        ViewGroup bar = findViewById(R.id.topButtons);
+        TextView button = (TextView) getLayoutInflater().inflate(R.layout.top_app_button, bar, false);
+        button.setId(View.generateViewId());
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_palette, 0, 0, 0);
+        button.setContentDescription(getString(R.string.themes));
+        button.setOnClickListener(v -> showThemePicker(v, current));
+        View settings = findViewById(R.id.btnSettings);
+        int at = bar.indexOfChild(settings);
+        bar.addView(button, getResources().getBoolean(R.bool.rtl_menu_bar) ? at + 1 : at);
+        topAppButtons.add(button);
+    }
+
+    /** The Themes list: each look with its swatch and a line on what it is; OK keeps the pick and rebuilds Home. */
+    private void showThemePicker(View anchor, HomeStyle current) {
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (300 * density));
+        View focus = null;
+        for (HomeStyle style : HomeStyle.values()) {
+            View row = addThemeRow(rows, popup, style, style == current);
+            if (style == current || focus == null && current == null) focus = row;
+        }
+        View none = addThemeRow(rows, popup, null, current == null);
+        if (current == null) focus = none;
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (300 * density), Math.min(panel.getMeasuredWidth(), (int) (420 * density))));
+        dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
+        focus.requestFocus();
+    }
+
+    /** One row of the Themes list; null is the launcher's own look, as config.xml and the theme file make it. */
+    private View addThemeRow(LinearLayout rows, PopupWindow popup, HomeStyle style, boolean current) {
+        View row = addInputRow(rows, popup, R.drawable.ic_palette,
+                getString(style == null ? R.string.style_none : style.name), -1, () -> pickStyle(style));
+        ImageView icon = row.findViewById(R.id.icon);
+        android.graphics.drawable.GradientDrawable swatch = new android.graphics.drawable.GradientDrawable();
+        swatch.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        swatch.setColor(style == null ? 0xFF000000 : style.swatchBackground);
+        swatch.setStroke(Math.round(3 * density), style == null ? 0x99FFFFFF : style.swatchAccent);
+        icon.setImageTintList(null);
+        icon.setImageDrawable(swatch);
+        TextView status = row.findViewById(R.id.status);
+        status.setText(style == null ? R.string.style_none_desc : style.description);
+        status.setVisibility(View.VISIBLE);
+        row.findViewById(R.id.dot).setVisibility(current ? View.VISIBLE : View.GONE);
+        return row;
+    }
+
+    /** Keeps the picked look (or clears it for null) and rebuilds Home with it. */
+    private void pickStyle(HomeStyle style) {
+        SharedPreferences.Editor editor = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE).edit();
+        if (style == null) editor.remove(HomeStyle.KEY); else editor.putString(HomeStyle.KEY, style.id);
+        editor.commit();
+        recreate();
     }
 
     /** top_bar_apps buttons, in bar order. */

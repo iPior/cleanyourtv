@@ -148,4 +148,23 @@
     <string name="race_countdown_days">%1$d ימ׳ %2$d שע׳</string>
     <string name="last_opened">פתיחה אחרונה: %1$s</string>
     <string name="continue_watching">המשך צפייה</string>
+    <string name="themes">ערכות נושא</string>
+    <string name="style_feature">Feature</string>
+    <string name="style_feature_desc">באנר בסגנון קולנוע</string>
+    <string name="style_minutes">Minutes</string>
+    <string name="style_minutes_desc">ציר זמן של הזמן שנותר</string>
+    <string name="style_horizon">Horizon</string>
+    <string name="style_horizon_desc">השמיים עוקבים אחר שעות היום</string>
+    <string name="style_centre">Centre Line</string>
+    <string name="style_centre_desc">רגוע וממורכז</string>
+    <string name="style_lamp">Lamp</string>
+    <string name="style_lamp_desc">עמום וחמים לערב</string>
+    <string name="style_none">מקורי</string>
+    <string name="style_none_desc">המשגר כפי שהוגדר</string>
+    <string name="dock_label">אפליקציות</string>
+    <plurals name="more_apps">
+        <item quantity="one">אפליקציה %1$d נוספת</item>
+        <item quantity="two">%1$d אפליקציות נוספות</item>
+        <item quantity="other">%1$d אפליקציות נוספות</item>
+    </plurals>
 </resources>

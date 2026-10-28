@@ -337,6 +337,14 @@
          launcher has no network: those cards show the app's banner and the title (docs/watch-next.md). Can also be
          set with "continue_watching" in a theme's config.json. -->
     <bool name="continue_watching">false</bool>
+
+    <!-- A Themes button (a palette) in the top bar: OK lists the built-in looks (Feature, Minutes, Horizon, Centre Line,
+         Lamp) and picks one on the TV, with no computer. The pick is kept in Launcher settings and laid under a theme's
+         config.json, so a pushed theme still wins where both set a key. Can also be set with "themes_button". -->
+    <bool name="themes_button">false</bool>
+    <!-- A small "Apps" label over the dock and a "more apps" hint under it, so the rest of the grid can stay below the
+         fold. Can also be set with "dock_labels" in a theme. -->
+    <bool name="dock_labels">false</bool>
     <!-- Names under every tile, not only the focused one: unfocused names stay dimmed, the focused one is full white.
          With dock_row the band grows down to hold the dock's names too. -->
     <bool name="always_show_names">false</bool>
