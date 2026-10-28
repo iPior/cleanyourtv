@@ -167,4 +167,6 @@
         <item quantity="two">%1$d אפליקציות נוספות</item>
         <item quantity="other">%1$d אפליקציות נוספות</item>
     </plurals>
+    <string name="time_left_min">נותרו %1$d דק׳</string>
+    <string name="time_left_h_min">נותרו %1$d ש׳ %2$d דק׳</string>
 </resources>

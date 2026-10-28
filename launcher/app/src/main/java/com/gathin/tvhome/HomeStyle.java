@@ -21,7 +21,7 @@ enum HomeStyle {
     HORIZON("horizon", R.string.style_horizon, R.string.style_horizon_desc, 0xFF0E1834, 0xFFF4F2EE,
             "{\"background_color\": \"#070A16\", \"sky_intensity\": 70, \"ambient_glow\": true}"),
     CENTRE("centre", R.string.style_centre, R.string.style_centre_desc, 0xFF0E0E12, 0xFFEDEDF2,
-            "{\"background_color\": \"#0E0E12\", \"ambient_glow\": false}"),
+            "{\"background_color\": \"#0E0E12\", \"ambient_glow\": false, \"app_glow\": true, \"show_greeting\": false, \"dock_band\": false}"),
     LAMP("lamp", R.string.style_lamp, R.string.style_lamp_desc, 0xFF120E0B, 0xFFE0A060,
             "{\"background_color\": \"#120E0B\", \"ambient_glow\": true}");
 

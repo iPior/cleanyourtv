@@ -173,4 +173,7 @@
         <item quantity="one">%1$d more app</item>
         <item quantity="other">%1$d more apps</item>
     </plurals>
+    <!-- Centre Line: the time left under the focused show's title. -->
+    <string name="time_left_min">%1$d min left</string>
+    <string name="time_left_h_min">%1$d h %2$d min left</string>
 </resources>

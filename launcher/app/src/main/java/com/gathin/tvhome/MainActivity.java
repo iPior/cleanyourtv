@@ -380,6 +380,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // signal level, so only it needs this minute's binder calls (about 7 ms on the UI thread).
             if (festive) updateWifiLabel();
             sky.update();
+            if (nightSky != null) nightSky.update();
             wallpaperPlayer.update();
             handler.postDelayed(this, MINUTE_MS);
         }
@@ -595,8 +596,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onChildViewDetachedFromWindow(@NonNull View v) {
             }
         });
-        if (dockRow) grid.addItemDecoration(new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass, cfg.dockEvenPadding, cfg.dockBand,
-                singleRow, cfg.dockBandAll));
+        if (dockRow) {
+            dockDecoration = new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass,
+                    cfg.dockEvenPadding, cfg.dockBand, singleRow, cfg.dockBandAll);
+            grid.addItemDecoration(dockDecoration);
+        }
         if (cfg.fadeRows) TopFade.attach(grid, 48 * density);
         // Reduced motion: the tiles are simply there, with no entrance (reloadApps skips it there too).
         if (animations && !reducedMotion) {
@@ -818,6 +822,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         if (festive) applyFestiveSkin((TextView) btnInputs, (TextView) btnSettings);
+        if (cfg.homeStyle == HomeStyle.CENTRE) applyCentreLine();
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -1633,6 +1638,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     public void onTileFocused(int position, View card) {
+        if (watchCaption != null) watchCaption.animate().alpha(0f).setDuration(160).start();
+        // Grid tiles below the dock show their name where the dot would go.
+        dotOff = !(dockRow && (singleRow || position < COLUMNS));
         lastFocused = position;
         lastFocusedKey = adapter.keyAt(position);
         // Focus restored before the first layout (cold start): the tile has no size yet, and the glass
@@ -1747,6 +1755,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         public void onWatchFocused(View card, WatchNext.Program program) {
             if (card.getWidth() == 0) return;
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
+            dotOff = false;
+            if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
             heroName.setText(program.title);
@@ -1790,7 +1800,144 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             root.offsetDescendantRectToMyCoords(v, r);
             top = Math.max(top, r.bottom);
         }
-        watchRow.showAbove(centers, w, h, shelfTop - 18 * density, top + 24 * density);
+        // Centre Line names the focused show under its card: leave room for two lines and the dock's label.
+        float captionRoom = watchCaption != null ? 64 * density : 0f;
+        watchRow.showAbove(centers, w, h, shelfTop - 18 * density - captionRoom, top + 24 * density);
+    }
+
+    // ---- Centre Line (HomeStyle.CENTRE) ------------------------------------------------------------
+
+    /** Centre Line's dot under whatever has focus, and the show caption that follows the focused card; else null. */
+    private View focusDot;
+    private TextView watchCaption;
+    /** True while focus is on a grid tile below the dock, where Centre Line's dot stays hidden. */
+    private boolean dotOff;
+    /** The dock row's decoration, or null without a dock row. */
+    private DockDecoration dockDecoration;
+    private NightSkyView nightSky;
+
+    /**
+     * Centre Line: the clock and the date centred with no greeting, Inputs alone at the left end of the top bar, a
+     * small dot under the focused tile, the focused show's title under its card, and the day-to-night backdrop.
+     */
+    private void applyCentreLine() {
+        greeting.setVisibility(View.GONE);
+        moveDateBelowClock();
+        LinearLayout block = (LinearLayout) clockBlock;
+        RelativeLayout.LayoutParams blp = (RelativeLayout.LayoutParams) block.getLayoutParams();
+        blp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        blp.removeRule(RelativeLayout.ALIGN_PARENT_START);
+        blp.removeRule(RelativeLayout.START_OF);
+        blp.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        blp.setMarginEnd(0);
+        block.setLayoutParams(blp);
+        block.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView clock = findViewById(R.id.clock);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f);
+        ((LinearLayout.LayoutParams) ((View) clock.getParent()).getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
+        TextView date = findViewById(R.id.date);
+        date.setGravity(Gravity.CENTER_HORIZONTAL);
+        ((LinearLayout.LayoutParams) ((View) date.getParent()).getLayoutParams()).gravity = Gravity.CENTER_HORIZONTAL;
+
+        // Inputs on its own at the left end, level with the other buttons.
+        ViewGroup bar = findViewById(R.id.topButtons);
+        ViewGroup header = (ViewGroup) bar.getParent();
+        bar.removeView(btnInputs);
+        RelativeLayout.LayoutParams ilp = new RelativeLayout.LayoutParams(btnInputs.getLayoutParams().width,
+                btnInputs.getLayoutParams().height);
+        ilp.addRule(RelativeLayout.ALIGN_PARENT_START);
+        ilp.addRule(RelativeLayout.ALIGN_TOP, R.id.topButtons);
+        header.addView(btnInputs, ilp);
+        RelativeLayout.LayoutParams tlp = (RelativeLayout.LayoutParams) bar.getLayoutParams();
+        tlp.removeRule(RelativeLayout.ALIGN_BOTTOM);
+        tlp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        tlp.topMargin = Math.round(18 * density);
+        bar.setLayoutParams(tlp);
+
+        // The next grid row starts well below the "more apps" hint, out of sight until Down.
+        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+
+        nightSky = new NightSkyView(this);
+        root.addView(nightSky, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        nightSky.update();
+
+        focusDot = new View(this);
+        android.graphics.drawable.GradientDrawable dot = new android.graphics.drawable.GradientDrawable();
+        dot.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dot.setColor(0xFFEDEDF2);
+        focusDot.setBackground(dot);
+        focusDot.setAlpha(0f);
+        int size = Math.round(6 * density);
+        root.addView(focusDot, new FrameLayout.LayoutParams(size, size));
+        // The glass moves by springs, by the dock's scroll and by direct jumps: follow where it is drawn, every frame.
+        root.getViewTreeObserver().addOnPreDrawListener(() -> {
+            syncFocusDot();
+            return true;
+        });
+
+        watchCaption = new TextView(this);
+        watchCaption.setGravity(Gravity.CENTER_HORIZONTAL);
+        watchCaption.setTextColor(0xFFEDEDF2);
+        watchCaption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        watchCaption.setTypeface(android.graphics.Typeface.create(getString(R.string.font_light), android.graphics.Typeface.NORMAL));
+        watchCaption.setMaxLines(2);
+        watchCaption.setAlpha(0f);
+        watchCaption.setFocusable(false);
+        root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(320 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
+    }
+
+    /** Keeps the dot centred just under the glass and as visible as it is. */
+    private void syncFocusDot() {
+        float tx = glass.getX() + glass.getWidth() / 2f - focusDot.getWidth() / 2f;
+        float ty = glass.getY() + glass.getHeight() + 6 * density;
+        if (focusDot.getTranslationX() != tx) focusDot.setTranslationX(tx);
+        if (focusDot.getTranslationY() != ty) focusDot.setTranslationY(ty);
+        float a = dotOff ? 0f : glass.getAlpha();
+        if (focusDot.getAlpha() != a) focusDot.setAlpha(a);
+    }
+
+    /** Title and "Jellyfin · 18 min left" under the focused card, centred on it but kept inside the row's ends. */
+    private void showWatchCaption(View card, WatchNext.Program program) {
+        CharSequence app = program.pkg;
+        try {
+            app = getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(program.pkg, 0));
+        } catch (PackageManager.NameNotFoundException ignored) {
+            // Filtered out already; the package name is a last resort.
+        }
+        String meta = app.toString();
+        long left = program.duration > 0 && program.position > 0 ? (program.duration - program.position) / 60000L : -1;
+        if (left > 0) meta += " \u00B7 " + timeLeft((int) left);
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(program.title).append('\n');
+        int start = text.length();
+        text.append(meta);
+        text.setSpan(new android.text.style.ForegroundColorSpan(0xFF6C6C7A), start, text.length(), 0);
+        text.setSpan(new android.text.style.RelativeSizeSpan(0.72f), start, text.length(), 0);
+        watchCaption.setText(text);
+        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        int w = watchCaption.getLayoutParams().width;
+        float x = r.exactCenterX() - w / 2f;
+        View first = grid.findViewHolderForAdapterPosition(0) == null ? null
+                : grid.findViewHolderForAdapterPosition(0).itemView.findViewById(R.id.card);
+        float lo = 0, hi = root.getWidth() - w;
+        if (first != null) {
+            Rect f = new Rect(0, 0, first.getWidth(), first.getHeight());
+            root.offsetDescendantRectToMyCoords(first, f);
+            lo = f.left;
+            hi = root.getWidth() - f.left - w;
+        }
+        float cx = Math.max(lo, Math.min(hi, x));
+        watchCaption.setGravity(cx == lo ? Gravity.LEFT : cx == hi ? Gravity.RIGHT : Gravity.CENTER_HORIZONTAL);
+        watchCaption.setTranslationX(cx);
+        watchCaption.setTranslationY(r.bottom + card.getHeight() * (AppAdapter.FOCUS_SCALE - 1f) / 2f + 20 * density);
+        watchCaption.animate().alpha(1f).setDuration(180).start();
+    }
+
+    /** "18 min left" or "1 h 32 min left". */
+    private String timeLeft(int minutes) {
+        return minutes < 60 ? getString(R.string.time_left_min, minutes)
+                : getString(R.string.time_left_h_min, minutes / 60, minutes % 60);
     }
 
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------
@@ -2181,6 +2328,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void hideGlass() {
+        if (watchCaption != null) watchCaption.animate().alpha(0f).setDuration(160).start();
         if (!glassShown) return;
         glassShown = false;
         glass.animate().cancel();
