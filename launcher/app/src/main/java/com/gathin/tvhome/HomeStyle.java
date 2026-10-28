@@ -53,9 +53,9 @@ enum HomeStyle {
         this.keys = keys;
     }
 
-    /** App tiles' height against the usual 16:9; Centre Line's are shorter so the shows above stand out. */
+    /** App tiles' height against the usual 16:9; Centre Line's and Lamp's are shorter so the shows above stand out. */
     float tileHeightScale() {
-        return this == CENTRE ? 0.8f : 1f;
+        return this == CENTRE || this == LAMP ? 0.8f : 1f;
     }
 
     /** The tile height scale for an optional style. */

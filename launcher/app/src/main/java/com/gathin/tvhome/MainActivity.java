@@ -1929,10 +1929,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Lamp: every card and tile but the focused one dimmed into the warm room (LampDim). */
     private boolean lampDim;
 
-    /** Lamp: the dim room. The lamp glow, the amber clock and the evening warmth come next. */
+    private LampGlow lampGlow;
+
+    /** Lamp: the dim room, and the lamp glow in place of the glass. The amber clock and the evening warmth come next. */
     private void applyLamp() {
         lampDim = true;
         if (watchRow != null) watchRow.setDimCards(true);
+        // The glass still springs to each focus, unseen: the lamp follows it. Its spring frames redraw the lamp.
+        glass.setVisibility(View.INVISIBLE);
+        lampGlow = new LampGlow(this);
+        lampGlow.follow(glass);
+        root.addView(lampGlow, 0, new FrameLayout.LayoutParams(1, 1));
+        root.post(() -> lampGlow.fitTo(root.getWidth()));
+        springX.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
+        springY.addUpdateListener((anim, value, velocity) -> lampGlow.invalidate());
         // As in Centre Line, the next grid row starts well below the "more apps" hint, out of sight until Down.
         if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);

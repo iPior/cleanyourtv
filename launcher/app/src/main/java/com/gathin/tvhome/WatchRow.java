@@ -87,6 +87,9 @@ final class WatchRow {
         container = new FrameLayout(activity);
         container.setClipChildren(false);
         container.setClipToPadding(false);
+        // Room under the cards for the focused one's zoom: the screen clips the row at its own bounds, which cut off
+        // the bottom of Lamp's ring. The row is placed by its top, so this moves nothing.
+        container.setPadding(0, 0, 0, Math.round(12 * density));
         container.setAlpha(0f);
         container.setVisibility(View.GONE);
         label = new TextView(activity);

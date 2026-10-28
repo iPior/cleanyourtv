@@ -7,34 +7,44 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.view.View;
 
 /**
  * Lamp's dimming, set as a card's foreground: every card but the focused one sinks into the warm dark of the
- * room, and white tiles further, like paper in shadow. One multiplied rectangle, clipped by the card's rounded
- * outline: no layer and no blur, so it costs a draw per card.
+ * room, and white tiles further, like paper in shadow; the focused one gets a thin amber ring instead, fading in
+ * as the dim fades out. One multiplied rectangle, clipped by the card's rounded outline: no layer and no blur.
  */
 final class LampDim extends Drawable {
     /** Sepia at about half brightness, and about a third for white tiles (the mock-up's filters). */
     static final int DIM = 0xFF7A6450, DIM_LIGHT = 0xFF4E4034;
+    /** The lamp's amber, for the ring and the glow (LampGlow). */
+    static final int GLOW = 0xFFE0A060;
     private static final int FADE_MS = 400;
 
     private final Paint paint = new Paint();
+    private final Paint ring = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF ringRect = new RectF();
+    private final float density;
     private boolean light;
     /** 0 is the card as it is, 1 fully dimmed. */
     private float level = 1f;
     private ValueAnimator fade;
 
-    private LampDim() {
+    private LampDim(float density) {
+        this.density = density;
         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.MULTIPLY));
+        ring.setStyle(Paint.Style.STROKE);
+        // Twice the mock-up's 2 px: the outer half falls outside the card's outline, which clips it.
+        ring.setStrokeWidth(4 * density);
     }
 
     /** Dims the card, or lifts the dim off it, adding the foreground the first time. */
     static void apply(View card, boolean light, boolean dim, boolean animate) {
         LampDim d = card.getForeground() instanceof LampDim ? (LampDim) card.getForeground() : null;
         if (d == null) {
-            d = new LampDim();
+            d = new LampDim(card.getResources().getDisplayMetrics().density);
             card.setForeground(d);
         }
         d.light = light;
@@ -63,9 +73,16 @@ final class LampDim extends Drawable {
 
     @Override
     public void draw(Canvas canvas) {
-        if (level <= 0f) return;
-        paint.setColor(Sky.lerpColor(0xFFFFFFFF, light ? DIM_LIGHT : DIM, level));
-        canvas.drawRect(getBounds(), paint);
+        if (level > 0f) {
+            paint.setColor(Sky.lerpColor(0xFFFFFFFF, light ? DIM_LIGHT : DIM, level));
+            canvas.drawRect(getBounds(), paint);
+        }
+        if (level < 1f) {
+            ring.setColor(Math.round((1f - level) * 0.85f * 255) << 24 | GLOW & 0x00FFFFFF);
+            ringRect.set(getBounds());
+            float r = AppAdapter.cornerRadius(getBounds().width(), density);
+            canvas.drawRoundRect(ringRect, r, r, ring);
+        }
     }
 
     @Override
