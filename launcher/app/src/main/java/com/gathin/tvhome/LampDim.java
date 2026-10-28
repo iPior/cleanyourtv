@@ -15,6 +15,7 @@ import android.view.View;
  * Lamp's dimming, set as a card's foreground: every card but the focused one sinks into the warm dark of the
  * room, and white tiles further, like paper in shadow; the focused one gets a thin amber ring instead, fading in
  * as the dim fades out. One multiplied rectangle, clipped by the card's rounded outline: no layer and no blur.
+ * Horizon uses the ring alone, in white ({@link #dims} off): the statics below are set by Home for each look.
  */
 final class LampDim extends Drawable {
     /** A warm grey at about 58% brightness, and about 40% for white tiles: the mock-up's filters as the TV shows them. */
@@ -25,6 +26,19 @@ final class LampDim extends Drawable {
     static final int DIM_EVENING = 0xFFA06A40, DIM_LIGHT_EVENING = 0xFF6E4228, GLOW_EVENING = 0xFFFF7428;
     /** How far into the evening the room is, 0 to 1, shared by every card; set by Home each minute. */
     static float evening;
+    /** Whether unfocused cards are dimmed (Lamp), or only the focused one is ringed (Horizon). */
+    static boolean dims = true;
+    /** The ring's colour when it does not follow the lamp (0: the lamp's), its strength and visible width. */
+    static int ringColor;
+    static float ringAlpha = 0.85f, ringDp = 2f;
+
+    /** Lamp's settings; a look that wants another ring sets the statics after this. */
+    static void lampLook() {
+        dims = true;
+        ringColor = 0;
+        ringAlpha = 0.85f;
+        ringDp = 2f;
+    }
 
     /** The lamp's colour at the current evening, for the ring, the glow and the clock. */
     static int glow() {
@@ -45,8 +59,6 @@ final class LampDim extends Drawable {
         this.density = density;
         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.MULTIPLY));
         ring.setStyle(Paint.Style.STROKE);
-        // Twice the mock-up's 2 px: the outer half falls outside the card's outline, which clips it.
-        ring.setStrokeWidth(4 * density);
     }
 
     /** Dims the card, or lifts the dim off it, adding the foreground the first time. */
@@ -82,13 +94,16 @@ final class LampDim extends Drawable {
 
     @Override
     public void draw(Canvas canvas) {
-        if (level > 0f) {
+        if (level > 0f && dims) {
             int dim = light ? Sky.lerpColor(DIM_LIGHT, DIM_LIGHT_EVENING, evening) : Sky.lerpColor(DIM, DIM_EVENING, evening);
             paint.setColor(Sky.lerpColor(0xFFFFFFFF, dim, level));
             canvas.drawRect(getBounds(), paint);
         }
         if (level < 1f) {
-            ring.setColor(Math.round((1f - level) * 0.85f * 255) << 24 | glow() & 0x00FFFFFF);
+            int c = ringColor != 0 ? ringColor : glow();
+            ring.setColor(Math.round((1f - level) * ringAlpha * 255) << 24 | c & 0x00FFFFFF);
+            // Twice the visible width: the outer half falls outside the card's outline, which clips it.
+            ring.setStrokeWidth(2 * ringDp * density);
             ringRect.set(getBounds());
             float r = AppAdapter.cornerRadius(getBounds().width(), density);
             canvas.drawRoundRect(ringRect, r, r, ring);

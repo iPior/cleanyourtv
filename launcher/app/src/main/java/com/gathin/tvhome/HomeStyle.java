@@ -19,7 +19,7 @@ enum HomeStyle {
     MINUTES("minutes", R.string.style_minutes, R.string.style_minutes_desc, 0xFF14121F, 0xFF7BE0B5,
             "{\"background_color\": \"#14121F\", \"ambient_glow\": true}"),
     HORIZON("horizon", R.string.style_horizon, R.string.style_horizon_desc, 0xFF0E1834, 0xFFF4F2EE,
-            "{\"background_color\": \"#070A16\", \"sky_intensity\": 70, \"ambient_glow\": true}"),
+            "{\"background_color\": \"#070A16\", \"ambient_glow\": false, \"dock_band\": false}"),
     CENTRE("centre", R.string.style_centre, R.string.style_centre_desc, 0xFF0E0E12, 0xFFEDEDF2,
             "{\"background_color\": \"#0E0E12\", \"ambient_glow\": false, \"app_glow\": true, \"show_greeting\": false, \"dock_band\": false}"),
     LAMP("lamp", R.string.style_lamp, R.string.style_lamp_desc, 0xFF120E0B, 0xFFE0A060,
@@ -27,6 +27,16 @@ enum HomeStyle {
 
     /** The preference that holds the picked style's id, in Config.SETTINGS_NAME. */
     static final String KEY = "home_style";
+
+    /** An hour to paint instead of the clock's, for checking Lamp's evening or Horizon's sky by day (adb); NaN for none. */
+    static float previewHour = Float.NaN;
+
+    /** The hour the time-of-day looks paint for: the preview hour, else now, with minutes as a fraction. */
+    static float hourNow() {
+        if (!Float.isNaN(previewHour)) return previewHour;
+        java.util.Calendar now = java.util.Calendar.getInstance();
+        return now.get(java.util.Calendar.HOUR_OF_DAY) + now.get(java.util.Calendar.MINUTE) / 60f;
+    }
 
     /**
      * What every style shares: Inputs, Themes and Settings as icons, no network pill, the Continue watching row,
@@ -53,8 +63,9 @@ enum HomeStyle {
         this.keys = keys;
     }
 
-    /** App tiles' height against the usual 16:9; Centre Line's and Lamp's are shorter so the shows above stand out. */
+    /** App tiles' height against the usual 16:9; shorter in the looks with their own layout, so the shows stand out. */
     float tileHeightScale() {
+        if (this == HORIZON) return 0.75f;   // the mock-up's 136 px tiles under 182 px cards
         return this == CENTRE || this == LAMP ? 0.8f : 1f;
     }
 

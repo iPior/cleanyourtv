@@ -383,6 +383,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             sky.update();
             if (nightSky != null) nightSky.update();
             if (lampRoom != null) updateLampEvening();
+            if (horizonSky != null) horizonSky.update();
             wallpaperPlayer.update();
             handler.postDelayed(this, MINUTE_MS);
         }
@@ -592,7 +593,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override
             public void onChildViewAttachedToWindow(@NonNull View v) {
                 v.setAlpha(tileAlpha(grid.getChildAdapterPosition(v)));
-                if (lampDim) dimTile(v, false);
+                if (framedCards) dimTile(v, false);
             }
 
             @Override
@@ -827,15 +828,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (festive) applyFestiveSkin((TextView) btnInputs, (TextView) btnSettings);
         if (cfg.homeStyle == HomeStyle.CENTRE) applyCentreLine();
         if (cfg.homeStyle == HomeStyle.LAMP) applyLamp();
+        if (cfg.homeStyle == HomeStyle.HORIZON) applyHorizon();
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
-            if (lampDim) {
+            if (framedCards) {
                 if (oldF != null) LampDim.set(oldF, true, true);
                 if (onTile) LampDim.set(newF, false, true);
-                lampGlow.light(lampButtons.contains(newF) ? newF : null);
+                if (lampGlow != null) lampGlow.light(lampButtons.contains(newF) ? newF : null);
             }
         });
 
@@ -931,12 +933,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        // Lamp's evening at another hour, to check it by day: am start -n com.gathin.tvhome/.MainActivity
-        // --ef lamp_preview_hour 21 (a negative hour goes back to the clock). Only colours change.
-        if (lampRoom != null && intent != null && intent.hasExtra(LAMP_PREVIEW_HOUR)) {
-            float hour = intent.getFloatExtra(LAMP_PREVIEW_HOUR, -1f);
-            LampRoom.previewHour = hour < 0f ? Float.NaN : hour % 24f;
-            updateLampEvening();
+        // Lamp's evening or Horizon's sky at another hour, to check them by day: am start -n
+        // com.gathin.tvhome/.MainActivity --ef preview_hour 21 (a negative hour goes back to the clock). Only colours change.
+        if ((lampRoom != null || horizonSky != null) && intent != null && intent.hasExtra(PREVIEW_HOUR)) {
+            float hour = intent.getFloatExtra(PREVIEW_HOUR, -1f);
+            HomeStyle.previewHour = hour < 0f ? Float.NaN : hour % 24f;
+            if (lampRoom != null) updateLampEvening();
+            if (horizonSky != null) horizonSky.update();
             return;
         }
         if (openLauncherSettingsIfAsked(intent)) return;
@@ -1815,7 +1818,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = Math.max(top, r.bottom);
         }
         // Centre Line names the focused show under its card: leave room for two lines and the dock's label.
-        float captionRoom = watchCaption == null ? 0f : (lampDim ? 44 : 64) * density;
+        float captionRoom = watchCaption == null ? 0f : (captionOneLine ? 44 : 64) * density;
         watchRow.showAbove(centers, w, h, shelfTop - 18 * density - captionRoom, top + 24 * density);
     }
 
@@ -1914,8 +1917,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         String meta = app.toString();
         long left = program.duration > 0 && program.position > 0 ? (program.duration - program.position) / 60000L : -1;
         if (left > 0) meta += " \u00B7 " + timeLeft((int) left);
-        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(program.title);
-        if (lampDim) {
+        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        // Under the card the title keeps to one line, cut with an ellipsis, so the details line always shows.
+        CharSequence title = captionUnderCard
+                ? android.text.TextUtils.ellipsize(program.title, watchCaption.getPaint(), r.width(), android.text.TextUtils.TruncateAt.END)
+                : program.title;
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(title);
+        if (captionOneLine) {
             // Lamp: one line, "Title · Jellyfin · 18 min left", the part after the title dimmed.
             int start = text.length();
             text.append(" \u00B7 ").append(meta);
@@ -1924,14 +1933,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             text.append('\n');
             int start = text.length();
             text.append(meta);
-            text.setSpan(new android.text.style.ForegroundColorSpan(0xFF6C6C7A), start, text.length(), 0);
-            text.setSpan(new android.text.style.RelativeSizeSpan(0.72f), start, text.length(), 0);
+            text.setSpan(new android.text.style.ForegroundColorSpan(captionMetaColor), start, text.length(), 0);
+            text.setSpan(new android.text.style.RelativeSizeSpan(captionMetaSize), start, text.length(), 0);
         }
         watchCaption.setText(text);
-        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
-        root.offsetDescendantRectToMyCoords(card, r);
-        // At the row's left edge, whichever card is focused.
-        watchCaption.setTranslationX(firstTileLeft(r.left));
+        if (captionUnderCard) {
+            // Horizon: under the focused card, as wide as it, moving with it.
+            if (watchCaption.getLayoutParams().width != r.width()) {
+                watchCaption.getLayoutParams().width = r.width();
+                watchCaption.requestLayout();
+            }
+            watchCaption.setTranslationX(r.left);
+        } else {
+            // At the row's left edge, whichever card is focused.
+            watchCaption.setTranslationX(firstTileLeft(r.left));
+        }
         watchCaption.setTranslationY(r.bottom + card.getHeight() * (AppAdapter.FOCUS_SCALE - 1f) / 2f + 20 * density);
         watchCaption.animate().alpha(1f).setDuration(180).start();
     }
@@ -1944,12 +1960,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- Lamp (HomeStyle.LAMP) ----------------------------------------------------------------------
 
-    /** Lamp: every card and tile but the focused one dimmed into the warm room (LampDim). */
-    private boolean lampDim;
+    /** Lamp and Horizon: cards and tiles carry a LampDim foreground (Lamp's dim and ring, Horizon's ring alone). */
+    private boolean framedCards;
+    /** The show caption's style: Lamp's one line; Horizon's under the focused card; its details' colour and size. */
+    private boolean captionOneLine, captionUnderCard;
+    private int captionMetaColor = 0xFF6C6C7A;
+    private float captionMetaSize = 0.72f;
 
     private LampGlow lampGlow;
     private LampRoom lampRoom;
-    private static final String LAMP_PREVIEW_HOUR = "lamp_preview_hour";
+    private static final String PREVIEW_HOUR = "preview_hour";
     /** Lamp's top buttons, which the lamp lights when focused. */
     private final List<View> lampButtons = new ArrayList<>();
     /** Lamp's text: warm cream, and a dim warm grey for labels, the date and the caption's details. */
@@ -1959,7 +1979,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Lamp: the dim room, and the lamp glow in place of the glass. The amber clock and the evening warmth come next. */
     private void applyLamp() {
-        lampDim = true;
+        framedCards = true;
+        captionOneLine = true;
+        LampDim.lampLook();
         if (watchRow != null) watchRow.setDimCards(true);
         // The glass still springs to each focus, unseen: the lamp follows it. Its spring frames redraw the lamp.
         glass.setVisibility(View.INVISIBLE);
@@ -2065,6 +2087,101 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View card = item.findViewById(R.id.card);
         if (card == null) return;
         LampDim.apply(card, adapter.lightAt(grid.getChildAdapterPosition(item)), !card.isFocused(), animate);
+    }
+
+    // ---- Horizon (HomeStyle.HORIZON) ----------------------------------------------------------------
+
+    private HorizonSky horizonSky;
+    /** Horizon's text: a warm white, softer for the date, the labels and the faded icons. */
+    private static final int HORIZON_TEXT = 0xFFF4F2EE;
+
+    /**
+     * Horizon: the time-of-day sky, the greeting, clock and date stacked at the left, plain icons, mixed-case labels,
+     * a white ring on the focused card instead of the glass, and the show's title under its card.
+     */
+    private void applyHorizon() {
+        framedCards = true;
+        captionUnderCard = true;
+        LampDim.lampLook();
+        LampDim.dims = false;
+        LampDim.ringColor = HORIZON_TEXT;
+        LampDim.ringAlpha = 1f;
+        LampDim.ringDp = 3f;
+        if (watchRow != null) watchRow.setDimCards(true);
+        glass.setVisibility(View.INVISIBLE);
+
+        horizonSky = new HorizonSky(this);
+        root.addView(horizonSky, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        horizonSky.update();
+
+        // The clock large and light with the date under it in plain case, as the mock-up stacks them.
+        moveDateBelowClock();
+        TextView clock = findViewById(R.id.clock);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f);
+        clock.setTextColor(HORIZON_TEXT);
+        clock.setTypeface(UiFont.get(this, R.string.font_light));
+        TextView ampm = findViewById(R.id.ampm);
+        ampm.setTextColor(HORIZON_TEXT & 0x00FFFFFF | 0xB3000000);
+        ampm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        ampm.setTypeface(UiFont.get(this, R.string.font_regular));
+        TextView date = findViewById(R.id.date);
+        date.setAllCaps(false);
+        date.setLetterSpacing(0.01f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        date.setTextColor(HORIZON_TEXT & 0x00FFFFFF | 0xBF000000);
+
+        // "Continue watching" and "Apps" in plain case, softly; the hint softer still.
+        Typeface medium = UiFont.get(this, R.string.font_medium);
+        if (watchRow != null) watchRow.setLabelStyle(false, 15f, HORIZON_TEXT & 0x00FFFFFF | 0xA6000000, 0f, medium);
+        if (dockLabel != null) {
+            dockLabel.setTextColor(HORIZON_TEXT & 0x00FFFFFF | 0xA6000000);
+            dockLabel.setTypeface(medium);
+            moreAppsHint.setTextColor(HORIZON_TEXT & 0x00FFFFFF | 0x8C000000);
+        }
+        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+
+        // The icons at the top, level with the greeting, not with the bottom of the taller clock block.
+        ViewGroup bar = findViewById(R.id.topButtons);
+        RelativeLayout.LayoutParams tlp = (RelativeLayout.LayoutParams) bar.getLayoutParams();
+        tlp.removeRule(RelativeLayout.ALIGN_BOTTOM);
+        tlp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        tlp.topMargin = Math.round(4 * density);
+        bar.setLayoutParams(tlp);
+
+        // Plain icons, slightly faded, with a soft light disc when focused.
+        int[][] states = {{android.R.attr.state_focused}, {}};
+        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states,
+                new int[]{HORIZON_TEXT, HORIZON_TEXT & 0x00FFFFFF | 0xBF000000});
+        List<View> buttons = new ArrayList<>(topAppButtons);
+        buttons.add(btnInputs);
+        buttons.add(findViewById(R.id.btnSettings));
+        for (View b : buttons) {
+            if (!(b instanceof TextView)) continue;
+            android.graphics.drawable.StateListDrawable disc = new android.graphics.drawable.StateListDrawable();
+            GradientDrawable on = new GradientDrawable();
+            on.setShape(GradientDrawable.OVAL);
+            on.setColor(HORIZON_TEXT & 0x00FFFFFF | 0x29000000);
+            disc.addState(states[0], on);
+            disc.addState(states[1], new ColorDrawable(0));
+            b.setBackground(disc);
+            ((TextView) b).setCompoundDrawableTintList(ink);
+        }
+
+        // The show's title and "app · time left" under its card (showWatchCaption places it).
+        captionMetaColor = HORIZON_TEXT & 0x00FFFFFF | 0xA6000000;
+        captionMetaSize = 0.8f;
+        watchCaption = new TextView(this);
+        watchCaption.setGravity(Gravity.START);
+        watchCaption.setTextColor(HORIZON_TEXT);
+        watchCaption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        watchCaption.setTypeface(medium);
+        watchCaption.setMaxLines(2);
+        watchCaption.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        watchCaption.setAlpha(0f);
+        watchCaption.setFocusable(false);
+        root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(320 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
+        for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
     }
 
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------

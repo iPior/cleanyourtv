@@ -8,17 +8,12 @@ import android.graphics.RadialGradient;
 import android.graphics.Shader;
 import android.view.View;
 
-import java.util.Calendar;
-
 /**
  * Lamp's room behind everything: warm brown by day, sinking into a deep ember orange in the evening, darker at the
  * edges. {@link #evening} is shared with the dim, the lamp, its ring and the clock, which warm with it.
  */
 final class LampRoom extends View {
     private static final int DAY = 0xFF120E0B, EVENING_CENTRE = 0xFF3A1806, EVENING_EDGE = 0xFF140804;
-
-    /** An hour to show instead of the clock's, for checking the evening by day (adb, MainActivity); NaN for none. */
-    static float previewHour = Float.NaN;
 
     private final Paint fill = new Paint();
     private final Matrix squeeze = new Matrix();
@@ -34,11 +29,9 @@ final class LampRoom extends View {
         return false;
     }
 
-    /** The evening now, or at the preview hour, from 0 (day) to 1 (full evening). */
+    /** The evening now, or at the preview hour (HomeStyle.hourNow), from 0 (day) to 1 (full evening). */
     static float eveningNow() {
-        if (!Float.isNaN(previewHour)) return evening(previewHour);
-        Calendar now = Calendar.getInstance();
-        return evening(now.get(Calendar.HOUR_OF_DAY) + now.get(Calendar.MINUTE) / 60f);
+        return evening(HomeStyle.hourNow());
     }
 
     /** Takes the evening; cheap to call every minute, redraws only when it changed. Returns whether it did. */
