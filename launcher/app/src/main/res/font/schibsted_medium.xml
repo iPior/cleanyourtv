@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Schibsted Grotesk at weight 500, for Minutes. Cut down to Western European letters, digits and punctuation, and to
+     weights 400 to 600; Minutes falls back to Outfit in locales whose fonts.xml names a system family. -->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <font
+        android:font="@font/schibsted"
+        android:fontStyle="normal"
+        android:fontWeight="500"
+        android:fontVariationSettings="'wght' 500"
+        tools:targetApi="28" />
+</font-family>
