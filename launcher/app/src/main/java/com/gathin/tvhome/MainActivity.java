@@ -505,7 +505,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         raceSessions = findViewById(R.id.raceSessions);
         showStats = cfg.showStats;
         inputsConnectedOnly = cfg.inputsConnectedOnly;
-        if (cfg.continueWatching && cfg.dockRow) watchRow = new WatchRow(this, root, glass, watchHost, COLUMNS, animations && !reducedMotion);
+        // Minutes shows the same programs as a timeline instead of a row (applyMinutes).
+        if (cfg.continueWatching && cfg.dockRow && cfg.homeStyle != HomeStyle.MINUTES) watchRow = new WatchRow(this, root, glass, watchHost, COLUMNS, animations && !reducedMotion);
         if (watchRow != null) watchRow.setNetflixPosters(cfg.netflixPosters);
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
@@ -830,6 +831,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cfg.homeStyle == HomeStyle.CENTRE) applyCentreLine();
         if (cfg.homeStyle == HomeStyle.LAMP) applyLamp();
         if (cfg.homeStyle == HomeStyle.HORIZON) applyHorizon();
+        if (cfg.homeStyle == HomeStyle.MINUTES) applyMinutes();
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -2254,6 +2256,166 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return 0;
     }
 
+    // ---- Minutes (HomeStyle.MINUTES) ----------------------------------------------------------------
+
+    /** Minutes: the clock column at the left with the top buttons under the date. */
+    private boolean minutes;
+    /** Minutes' colours: chalk text, a muted lilac grey, the mint of focus, and the faint grey of the hint. */
+    private static final int MINUTES_TEXT = 0xFFECE8F4, MINUTES_MUTE = 0xFF8A84A0, MINUTES_MINT = 0xFF7BE0B5,
+            MINUTES_HINT = 0xFF5A5470;
+
+    /**
+     * Minutes: the violet room; greeting, a large clock and the date in a column at the left, lined up with the dock,
+     * with Inputs, Themes and Settings as rounded squares under the date; a mint ring on the focused tile instead of
+     * the glass. The right side is kept for the timeline of shows.
+     */
+    private void applyMinutes() {
+        minutes = true;
+        framedCards = true;
+        LampDim.lampLook();
+        LampDim.dims = false;
+        LampDim.ringColor = MINUTES_MINT;
+        LampDim.ringAlpha = 1f;
+        LampDim.ringDp = 2f;
+        glass.setVisibility(View.INVISIBLE);
+        root.addView(new MinutesRoom(this), 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Schibsted Grotesk for the clock and the date, Minutes Mono (IBM Plex Mono) for the greeting and labels, as
+        // in the mock-up; Outfit where the locale needs a system family (UiFont.bundled).
+        boolean own = UiFont.bundled(this);
+        Typeface regular = own ? getResources().getFont(R.font.schibsted_regular) : UiFont.get(this, R.string.font_regular);
+        Typeface medium = own ? getResources().getFont(R.font.schibsted_medium) : UiFont.get(this, R.string.font_medium);
+        Typeface mono = own ? getResources().getFont(R.font.minutes_mono_medium) : UiFont.get(this, R.string.font_medium);
+        Typeface monoBold = own ? getResources().getFont(R.font.minutes_mono_semibold) : UiFont.get(this, R.string.font_medium);
+
+        moveDateBelowClock();
+        greeting.setTypeface(mono);
+        greeting.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        greeting.setLetterSpacing(0.14f);
+        greetingColor = MINUTES_MUTE;
+        greeting.setTextColor(MINUTES_MUTE);
+        TextView clock = findViewById(R.id.clock);
+        clock.setTypeface(medium);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 92f);
+        clock.setLetterSpacing(-0.045f);
+        clock.setTextColor(MINUTES_TEXT);
+        clock.setIncludeFontPadding(false);
+        clock.setSingleLine(true);
+        // The clock's row and the greeting as wide as their text: a column that wraps its content stretches its
+        // full-width lines to the widest other line, the date, which cut the large clock in two.
+        LinearLayout.LayoutParams rowLp = (LinearLayout.LayoutParams) ((View) clock.getParent()).getLayoutParams();
+        rowLp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        rowLp.topMargin = Math.round(7 * density);
+        LinearLayout.LayoutParams glp = (LinearLayout.LayoutParams) greeting.getLayoutParams();
+        glp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        glp.setMarginStart(0);
+        greeting.setLayoutParams(glp);
+        TextView ampm = findViewById(R.id.ampm);
+        ampm.setTypeface(medium);
+        ampm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
+        ampm.setTextColor(MINUTES_MUTE);
+        // On the clock's baseline, as the mock-up has it.
+        LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) ampm.getLayoutParams();
+        alp.gravity = -1;
+        alp.bottomMargin = 0;
+        alp.setMarginStart(Math.round(6 * density));
+        ampm.setLayoutParams(alp);
+        TextView date = findViewById(R.id.date);
+        date.setTypeface(regular);
+        date.setAllCaps(false);
+        date.setLetterSpacing(0f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        date.setTextColor(MINUTES_TEXT & 0x00FFFFFF | 0xD9000000);
+        // Closer under the clock, as in the mock-up: Schibsted's tall descent leaves a wide gap below the digits.
+        ((LinearLayout.LayoutParams) ((View) date.getParent()).getLayoutParams()).topMargin = Math.round(-4 * density);
+
+        // The buttons under the date: the clock column no longer stops at them, and they leave the right end.
+        View block = clockBlock;
+        RelativeLayout.LayoutParams blp = (RelativeLayout.LayoutParams) block.getLayoutParams();
+        blp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        blp.removeRule(RelativeLayout.START_OF);
+        blp.setMarginEnd(0);
+        block.setLayoutParams(blp);
+        ViewGroup bar = findViewById(R.id.topButtons);
+        RelativeLayout.LayoutParams tlp = (RelativeLayout.LayoutParams) bar.getLayoutParams();
+        tlp.removeRule(RelativeLayout.ALIGN_PARENT_END);
+        tlp.removeRule(RelativeLayout.ALIGN_BOTTOM);
+        tlp.addRule(RelativeLayout.BELOW, R.id.leftBlock);
+        tlp.addRule(RelativeLayout.ALIGN_PARENT_START);
+        tlp.topMargin = Math.round(20 * density);
+        tlp.bottomMargin = 0;
+        bar.setLayoutParams(tlp);
+
+        // Rounded squares with a faint outline; mint outline, tint and a faint mint fill when focused.
+        int[][] states = {{android.R.attr.state_focused}, {}};
+        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states,
+                new int[]{MINUTES_MINT, MINUTES_TEXT});
+        int size = Math.round(32 * density), icon = Math.round(16 * density), pad = (size - icon) / 2;
+        boolean first = true;
+        for (int i = 0; i < bar.getChildCount(); i++) {
+            View b = bar.getChildAt(i);
+            if (!(b instanceof TextView) || b.getVisibility() != View.VISIBLE) continue;
+            TextView t = (TextView) b;
+            android.graphics.drawable.StateListDrawable square = new android.graphics.drawable.StateListDrawable();
+            square.addState(states[0], minutesSquare(MINUTES_MINT, MINUTES_MINT & 0x00FFFFFF | 0x14000000));
+            square.addState(states[1], minutesSquare(MINUTES_TEXT & 0x00FFFFFF | 0x29000000, 0));
+            t.setBackground(square);
+            Drawable d = t.getCompoundDrawablesRelative()[0];
+            if (d != null) {
+                d.setBounds(0, 0, icon, icon);
+                t.setCompoundDrawablesRelative(d, null, null, null);
+            }
+            t.setCompoundDrawableTintList(ink);
+            t.setPaddingRelative(pad, 0, pad, 0);
+            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) t.getLayoutParams();
+            lp.width = size;
+            lp.height = size;
+            lp.setMarginStart(first ? 0 : Math.round(6 * density));
+            t.setLayoutParams(lp);
+            first = false;
+        }
+
+        // The column starts where the dock's first tile does, as in the mock-up, wherever the grid lays it out.
+        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> alignMinutesColumn());
+
+        // "APPS" in spaced mono caps over the dock, and the hint in a fainter mono under it.
+        if (dockLabel != null) {
+            dockLabel.setAllCaps(true);
+            dockLabel.setTypeface(monoBold);
+            dockLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            dockLabel.setLetterSpacing(0.16f);
+            dockLabel.setTextColor(MINUTES_MUTE);
+            moreAppsHint.setTypeface(mono);
+            moreAppsHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+            moreAppsHint.setLetterSpacing(0f);
+            moreAppsHint.setTextColor(MINUTES_HINT);
+        }
+        setDockGap(Math.round(140 * density));
+        for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /** Moves the clock column and its buttons so their left edge meets the first dock tile's. */
+    private void alignMinutesColumn() {
+        float x = firstTileLeft(Float.NaN);
+        if (Float.isNaN(x)) return;
+        Rect r = new Rect(0, 0, clockBlock.getWidth(), clockBlock.getHeight());
+        root.offsetDescendantRectToMyCoords(clockBlock, r);
+        float dx = x - r.left;
+        if (Math.abs(dx - clockBlock.getTranslationX()) < 0.5f) return;
+        clockBlock.setTranslationX(dx);
+        findViewById(R.id.topButtons).setTranslationX(dx);
+    }
+
+    /** A Minutes top button's square: 7 dp corners, a 1 dp outline in line, filled with fill (0: none). */
+    private GradientDrawable minutesSquare(int line, int fill) {
+        GradientDrawable d = new GradientDrawable();
+        d.setCornerRadius(7 * density);
+        d.setColor(fill);
+        d.setStroke(Math.max(1, Math.round(density)), line);
+        return d;
+    }
+
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------
 
     /** dock_labels: "Apps" over the dock and "↓ N more apps" under it; null when off. */
@@ -2874,6 +3036,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
             // Dock row: up to Continue watching when it is showing, else let focus move to the top bar.
+            // Minutes' buttons are in the left column, which the focus finder would not pick: go there by hand.
+            if (position < COLUMNS && minutes) return btnInputs.requestFocus();
             if (position < COLUMNS) return watchRow != null && watchRow.focus(position);
             target = position - COLUMNS;
         } else {
@@ -3877,6 +4041,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setPivotY(0f);
         panel.setScaleY(0.92f);
         panel.setTranslationY(-8 * density);
+        // Minutes keeps the top buttons in the left column: its menus grow rightwards from them.
+        if (minutes && gravity == Gravity.END) gravity = Gravity.START;
         popup.showAsDropDown(anchor, 0, (int) (10 * density), gravity);
         panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(reducedMotion ? Motion.REDUCED_MS : 220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
