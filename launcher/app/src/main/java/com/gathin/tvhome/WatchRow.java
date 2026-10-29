@@ -165,9 +165,9 @@ final class WatchRow {
         int width = cardW > 0 ? cardW : Math.round(200 * density);
         for (WatchNext.Program p : programs) {
             String uri = p.poster;
-            if (!WatchNext.localPoster(uri) || CACHE.get(uri) != null || !PENDING.add(uri)) continue;
+            if (!loadable(uri) || CACHE.get(uri) != null || !PENDING.add(uri)) continue;
             POSTERS.execute(() -> {
-                Bitmap b = WatchNext.poster(app, uri, width);
+                Bitmap b = decode(app, uri, width);
                 main.post(() -> {
                     PENDING.remove(uri);
                     if (b == null) return;
@@ -377,6 +377,23 @@ final class WatchRow {
         return cards.contains(v);
     }
 
+    /** netflix_posters: Netflix's web posters are fetched (NetflixPosters); every other web picture never is. */
+    private boolean netflixPosters;
+
+    void setNetflixPosters(boolean on) {
+        netflixPosters = on;
+    }
+
+    /** Whether this poster can be shown: on the TV, or Netflix's when netflix_posters is on. */
+    private boolean loadable(String uri) {
+        return WatchNext.localPoster(uri) || netflixPosters && NetflixPosters.allowed(uri);
+    }
+
+    /** Decodes a loadable poster at about width px. Off the main thread. */
+    private static Bitmap decode(Context app, String uri, int width) {
+        return WatchNext.localPoster(uri) ? WatchNext.poster(app, uri, width) : NetflixPosters.poster(app, uri, width);
+    }
+
     /** Horizon: a tall (2:3) poster fills its card from the top, the scene, rather than its middle. */
     private boolean tallFromTop;
 
@@ -397,11 +414,11 @@ final class WatchRow {
 
     /**
      * Decodes the poster at width px for Horizon's sky off the main thread and hands it to done on it (at once when
-     * cached). Pictures on the web are never fetched.
+     * cached). Web pictures load only as the cards' do (netflix_posters).
      */
     void skyPoster(WatchNext.Program p, int width, java.util.function.Consumer<Bitmap> done) {
         String uri = p.poster;
-        if (!WatchNext.localPoster(uri)) return;
+        if (!loadable(uri)) return;
         Bitmap cached = SKY.get(uri);
         if (cached != null) {
             done.accept(cached);
@@ -409,7 +426,7 @@ final class WatchRow {
         }
         Context app = activity.getApplicationContext();
         POSTERS.execute(() -> {
-            Bitmap b = WatchNext.poster(app, uri, width);
+            Bitmap b = decode(app, uri, width);
             main.post(() -> {
                 if (b == null || activity.isDestroyed()) return;
                 SKY.put(uri, b);

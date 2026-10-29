@@ -345,6 +345,10 @@
     <!-- A small "Apps" label over the dock and a "more apps" hint under it, so the rest of the grid can stay below the
          fold. Can also be set with "dock_labels" in a theme. -->
     <bool name="dock_labels">false</bool>
+    <!-- Netflix's Continue watching posters, fetched over https from Netflix's image server (nflxso.net) and kept on
+         the TV. The launcher's only network use: needs the INTERNET permission this fork adds. Can also be set with
+         "netflix_posters" in a theme. -->
+    <bool name="netflix_posters">false</bool>
     <!-- Names under every tile, not only the focused one: unfocused names stay dimmed, the focused one is full white.
          With dock_row the band grows down to hold the dock's names too. -->
     <bool name="always_show_names">false</bool>

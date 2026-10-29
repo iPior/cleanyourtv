@@ -182,6 +182,8 @@ final class Config {
     final boolean themesButton;
     /** A small "Apps" label over the dock and a "more apps" hint under it (config.xml / theme dock_labels). */
     final boolean dockLabels;
+    /** Netflix's Watch Next posters fetched from its image server, the only network use (config.xml / theme netflix_posters). */
+    final boolean netflixPosters;
     /** The Settings button opens the quick settings panel instead of the TV's Settings (settings_key_panel). */
     final boolean settingsKeyPanel;
     /** Home puts the remote's accessibility helpers back after a force stop (restore_key_services; ServiceRepair). */
@@ -280,7 +282,7 @@ final class Config {
                    List<RaceWeekend.Race> raceCalendar, boolean cinematicHome, boolean ambientGlow, boolean appGlow, boolean fadeRows, int homeIdleClockMinutes,
                    boolean keyFilter, boolean dockGlass, String glowStyle, boolean wallpaperCaptions,
                    boolean handleViewInputs, boolean tileMenu, boolean dockEvenPadding, boolean dockBand, boolean cinematicDots, boolean cinematicWhiteFocus, boolean wifiStatusColor, int cinematicScrim, int cinematicArt,
-                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean continueWatching, HomeStyle homeStyle, boolean themesButton, boolean dockLabels) {
+                   Map<String, Set<String>> wallpaperMoods, boolean gamepadPassthrough, boolean consumeVolumeKeys, boolean powerOnHome, boolean homeLongPressHome, boolean wifiStatusWarnings, List<String> topBarApps, boolean showGreeting, boolean headerWhite, boolean clockWallpaper, int clockWallpaperDim, boolean clockGlow, String glassStyle, boolean singleRow, boolean dockBandAll, boolean lunarDate, int lunarUtcOffset, boolean dateBelowClock, boolean vpnPill, String locale, boolean powerOnHomeAlways, boolean inputsConnectedOnly, boolean continueWatching, HomeStyle homeStyle, boolean themesButton, boolean dockLabels, boolean netflixPosters) {
         this.handleViewInputs = handleViewInputs;
         this.tileMenu = tileMenu;
         this.inputKeycodes = inputKeycodes;
@@ -380,6 +382,7 @@ final class Config {
         this.homeStyle = homeStyle;
         this.themesButton = themesButton;
         this.dockLabels = dockLabels;
+        this.netflixPosters = netflixPosters;
         this.wifiStatusWarnings = wifiStatusWarnings;
         this.topBarApps = Collections.unmodifiableList(topBarApps);
         this.showGreeting = showGreeting;
@@ -491,6 +494,7 @@ final class Config {
         boolean continueWatching = res.getBoolean(R.bool.continue_watching);
         boolean themesButton = res.getBoolean(R.bool.themes_button);
         boolean dockLabels = res.getBoolean(R.bool.dock_labels);
+        boolean netflixPosters = res.getBoolean(R.bool.netflix_posters);
         boolean dockGlass = res.getBoolean(R.bool.dock_glass);
         boolean dockEvenPadding = res.getBoolean(R.bool.dock_even_padding);
         boolean dockBand = res.getBoolean(R.bool.dock_band);
@@ -601,6 +605,7 @@ final class Config {
             continueWatching = bool(json, "continue_watching", continueWatching);
             themesButton = bool(json, "themes_button", themesButton);
             dockLabels = bool(json, "dock_labels", dockLabels);
+            netflixPosters = bool(json, "netflix_posters", netflixPosters);
             dockGlass = bool(json, "dock_glass", dockGlass);
             dockEvenPadding = bool(json, "dock_even_padding", dockEvenPadding);
             dockBand = bool(json, "dock_band", dockBand);
@@ -685,7 +690,7 @@ final class Config {
                 dockBand, cinematicDots, cinematicWhiteFocus, wifiStatusColor, cinematicScrim, cinematicArt, wallpaperMoods, gamepadPassthrough,
                 consumeVolumeKeys, powerOnHome, homeLongPressHome, wifiStatusWarnings, topBarApps, showGreeting, headerWhite, clockWallpaper,
                 Math.max(0, Math.min(90, clockWallpaperDim)), clockGlow, glassStyle, singleRow && dockRow, dockBandAll, lunar, lunarOffset,
-                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, continueWatching, homeStyle, themesButton, dockLabels);
+                dateBelowClock, vpnPill, locale, powerOnHomeAlways, inputsConnectedOnly, continueWatching, homeStyle, themesButton, dockLabels, netflixPosters);
     }
 
     /**

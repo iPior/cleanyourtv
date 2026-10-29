@@ -506,6 +506,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         showStats = cfg.showStats;
         inputsConnectedOnly = cfg.inputsConnectedOnly;
         if (cfg.continueWatching && cfg.dockRow) watchRow = new WatchRow(this, root, glass, watchHost, COLUMNS, animations && !reducedMotion);
+        if (watchRow != null) watchRow.setNetflixPosters(cfg.netflixPosters);
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
         lunar = cfg.lunarDate;
