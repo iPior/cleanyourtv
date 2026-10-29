@@ -54,6 +54,12 @@ final class WatchRow {
     /** URIs being decoded, so a resume during a slow load does not queue the same poster again (main thread). */
     private static final java.util.Set<String> PENDING = new java.util.HashSet<>();
     private static boolean permissionAsked;
+    /**
+     * The newest row (main thread). Home can start twice after an install: the first row queues a poster and the
+     * second one, seeing it pending, waits for it, so a finished poster goes to this row too, not only its asker.
+     * Weak, so a closed Home is not kept.
+     */
+    private static java.lang.ref.WeakReference<WatchRow> newest = new java.lang.ref.WeakReference<>(null);
 
     private final Activity activity;
     private final Host host;
@@ -81,6 +87,7 @@ final class WatchRow {
     WatchRow(Activity activity, FrameLayout root, View above, Host host, int maxCards, boolean animations) {
         this.activity = activity;
         this.host = host;
+        newest = new java.lang.ref.WeakReference<>(this);
         this.density = activity.getResources().getDisplayMetrics().density;
         this.animations = animations;
         this.maxCards = Math.max(1, maxCards);
@@ -164,6 +171,8 @@ final class WatchRow {
                     if (b == null) return;
                     CACHE.put(uri, b);
                     if (!activity.isDestroyed()) showPoster(uri, b);
+                    WatchRow other = newest.get();
+                    if (other != null && other != this && !other.activity.isDestroyed()) other.showPoster(uri, b);
                 });
             });
         }
