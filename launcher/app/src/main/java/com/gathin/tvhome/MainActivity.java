@@ -1701,9 +1701,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Below the dock (or in a plain grid) the glow follows the tile without the big name; letting it
             // fade out left the grid on plain black.
             showGlowOnly(position);
-            // Scroll just enough so the whole glass (not only the tile) is visible.
-            revealRect.set(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
-            grid.requestChildRectangleOnScreen(item, revealRect, reducedMotion);
+            // Down from the dock: while any of the dock still shows, scroll it and the gap under it past the grid's top
+            // edge, so the rows below start right under the header. Scrolling only enough to show the row left the
+            // dock cut off under the header when a look leaves a gap under it (setDockGap). The grid's top padding is
+            // only where the dock rests; rows scroll up past it to the grid's edge.
+            RecyclerView.ViewHolder dock = dockGap && !singleRow ? grid.findViewHolderForAdapterPosition(0) : null;
+            if (dock != null && dock.itemView.getBottom() > 0) {
+                int dy = grid.getLayoutManager().getDecoratedBottom(dock.itemView) - (int) (pad * 2);
+                if (!animations || reducedMotion) grid.scrollBy(0, dy);
+                else grid.smoothScrollBy(0, dy);
+            } else {
+                // Scroll just enough so the whole glass (not only the tile) is visible.
+                revealRect.set(0, -(int) pad * 2, item.getWidth(), item.getHeight() + (int) pad);
+                grid.requestChildRectangleOnScreen(item, revealRect, reducedMotion);
+            }
         }
     }
 
@@ -1895,7 +1906,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         bar.setLayoutParams(tlp);
 
         // The next grid row starts well below the "more apps" hint, out of sight until Down.
-        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+        setDockGap(Math.round(140 * density));
 
         if (watchRow != null) watchRow.setLabelStyle(false, 15f, 0x99FFFFFF, 0.04f, medium);
 
@@ -2052,7 +2063,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setFocusable(false);
         root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(820 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
         // As in Centre Line, the next grid row starts well below the "more apps" hint, out of sight until Down.
-        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+        setDockGap(Math.round(140 * density));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
         updateLampEvening();
     }
@@ -2089,6 +2100,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         d.setColor(fill);
         d.setStroke(Math.round(1.5f * density), line);
         return d;
+    }
+
+    /** Whether a look left a gap under the dock (setDockGap), so Down from the dock scrolls it right away. */
+    private boolean dockGap;
+
+    /** A gap under the dock that keeps the next grid row well below the "more apps" hint, out of sight until Down. */
+    private void setDockGap(int px) {
+        if (dockDecoration == null) return;
+        dockDecoration.setBottomGap(px);
+        dockGap = true;
     }
 
     /** Dims a grid tile unless it has focus; white banners further. */
@@ -2160,7 +2181,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             dockLabel.setTypeface(medium);
             moreAppsHint.setTextColor(HORIZON_TEXT & 0x00FFFFFF | 0x8C000000);
         }
-        if (dockDecoration != null) dockDecoration.setBottomGap(Math.round(140 * density));
+        setDockGap(Math.round(140 * density));
 
         // The icons at the top, level with the greeting, not with the bottom of the taller clock block.
         ViewGroup bar = findViewById(R.id.topButtons);
