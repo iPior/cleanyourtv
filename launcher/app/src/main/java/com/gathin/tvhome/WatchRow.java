@@ -51,6 +51,8 @@ final class WatchRow {
     private static final ExecutorService POSTERS = Executors.newSingleThreadExecutor();
     /** Decoded posters by URI, shared by every Home instance; a few dozen KB each at tile size. */
     private static final android.util.LruCache<String, Bitmap> CACHE = new android.util.LruCache<>(12);
+    /** Larger copies for Horizon's sky, by URI: only the last two, at a few MB each. */
+    private static final android.util.LruCache<String, Bitmap> SKY = new android.util.LruCache<>(2);
     /** URIs being decoded, so a resume during a slow load does not queue the same poster again (main thread). */
     private static final java.util.Set<String> PENDING = new java.util.HashSet<>();
     private static boolean permissionAsked;
@@ -181,7 +183,7 @@ final class WatchRow {
     private void showPoster(String uri, Bitmap b) {
         for (int i = 0; i < programs.size() && i < arts.size(); i++) {
             if (!uri.equals(programs.get(i).poster)) continue;
-            arts.get(i).setImageBitmap(b);
+            arts.get(i).setImageBitmap(cardArt(b));
             arts.get(i).setImageAlpha(255);
             titles.get(i).setVisibility(View.GONE);
         }
@@ -218,7 +220,7 @@ final class WatchRow {
         ImageView art = new ImageView(activity);
         art.setScaleType(ImageView.ScaleType.CENTER_CROP);
         if (poster != null) {
-            art.setImageBitmap(poster);
+            art.setImageBitmap(cardArt(poster));
         } else {
             // No poster yet (it is loading, or it is on the web): the app's banner, with the title written over it.
             Drawable banner = null;
@@ -373,6 +375,47 @@ final class WatchRow {
     /** A Continue watching card: the glass stays shown when focus moves onto one. */
     boolean owns(View v) {
         return cards.contains(v);
+    }
+
+    /** Horizon: a tall (2:3) poster fills its card from the top, the scene, rather than its middle. */
+    private boolean tallFromTop;
+
+    void setTallFromTop(boolean on) {
+        tallFromTop = on;
+    }
+
+    /** The poster as a card shows it: a tall one cut to 16:9 from its top when tallFromTop, else as it is. */
+    private Bitmap cardArt(Bitmap poster) {
+        if (!tallFromTop || poster.getHeight() <= poster.getWidth()) return poster;
+        return Bitmap.createBitmap(poster, 0, 0, poster.getWidth(), Math.round(poster.getWidth() * 9f / 16f));
+    }
+
+    /** The poster already decoded at card size, or null. */
+    static Bitmap cardPoster(WatchNext.Program p) {
+        return p.poster == null ? null : CACHE.get(p.poster);
+    }
+
+    /**
+     * Decodes the poster at width px for Horizon's sky off the main thread and hands it to done on it (at once when
+     * cached). Pictures on the web are never fetched.
+     */
+    void skyPoster(WatchNext.Program p, int width, java.util.function.Consumer<Bitmap> done) {
+        String uri = p.poster;
+        if (!WatchNext.localPoster(uri)) return;
+        Bitmap cached = SKY.get(uri);
+        if (cached != null) {
+            done.accept(cached);
+            return;
+        }
+        Context app = activity.getApplicationContext();
+        POSTERS.execute(() -> {
+            Bitmap b = WatchNext.poster(app, uri, width);
+            main.post(() -> {
+                if (b == null || activity.isDestroyed()) return;
+                SKY.put(uri, b);
+                done.accept(b);
+            });
+        });
     }
 
     /** Lamp dims every card but the focused one (LampDim); off in every other look. */

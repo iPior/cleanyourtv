@@ -835,6 +835,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
             if (horizonGlow != null && !onTile) horizonGlow.setColor(0, animations && !reducedMotion);
+            if (horizonPicture != null && !(watchRow != null && watchRow.owns(newF))) {
+                skyProgram = null;
+                horizonPicture.show(null);
+            }
             if (framedCards) {
                 if (oldF != null) LampDim.set(oldF, true, true);
                 if (onTile) LampDim.set(newF, false, true);
@@ -1776,6 +1780,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (card.getWidth() == 0) return;
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
             if (horizonGlow != null) horizonGlow.setColor(pictureColor(card), animations && !reducedMotion);
+            if (horizonPicture != null) showSkyPicture(program);
             if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
@@ -2096,6 +2101,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private HorizonSky horizonSky;
     private HorizonGlow horizonGlow;
+    private HorizonPicture horizonPicture;
+    /** The show whose picture the sky shows, so a late sharp copy of another one is dropped. */
+    private WatchNext.Program skyProgram;
     /** Horizon's text: a warm white, softer for the date, the labels and the faded icons. */
     private static final int HORIZON_TEXT = 0xFFF4F2EE;
 
@@ -2121,6 +2129,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         horizonGlow = new HorizonGlow(this);
         root.addView(horizonGlow, 1, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        horizonPicture = new HorizonPicture(this);
+        horizonPicture.setAnimate(animations && !reducedMotion);
+        root.addView(horizonPicture, 2, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (watchRow != null) watchRow.setTallFromTop(true);
 
         // The clock large and light with the date under it in plain case, as the mock-up stacks them.
         moveDateBelowClock();
@@ -2189,6 +2202,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchCaption.setFocusable(false);
         root.addView(watchCaption, new FrameLayout.LayoutParams(Math.round(320 * density), ViewGroup.LayoutParams.WRAP_CONTENT));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /**
+     * Puts the show's poster in the sky: the card-size copy at once, then a sharp one decoded at the sky's size. A show
+     * with no loaded poster leaves the sky clear.
+     */
+    private void showSkyPicture(WatchNext.Program program) {
+        skyProgram = program;
+        Bitmap small = WatchRow.cardPoster(program);
+        horizonPicture.show(small);
+        if (small == null) return;
+        int width = Math.round(root.getWidth() * (small.getHeight() > small.getWidth() ? 700f : 1240f) / 1920f);
+        watchRow.skyPoster(program, width, big -> {
+            if (skyProgram == program) horizonPicture.show(big);
+        });
     }
 
     /** A Continue watching card's colour, from its picture (the poster, or the app's banner until it loads). */
