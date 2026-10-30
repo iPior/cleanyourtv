@@ -159,6 +159,8 @@
     <string name="style_feature_desc">Cinema-style banner</string>
     <string name="style_minutes">Minutes</string>
     <string name="style_minutes_desc">Timeline of time left</string>
+    <!-- The start of Minutes' time axis, over the line that marks the present. -->
+    <string name="minutes_now">NOW</string>
     <string name="style_horizon">Horizon</string>
     <string name="style_horizon_desc">Sky follows the time of day</string>
     <string name="style_centre">Centre Line</string>

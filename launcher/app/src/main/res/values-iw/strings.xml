@@ -153,6 +153,7 @@
     <string name="style_feature_desc">באנר בסגנון קולנוע</string>
     <string name="style_minutes">Minutes</string>
     <string name="style_minutes_desc">ציר זמן של הזמן שנותר</string>
+    <string name="minutes_now">עכשיו</string>
     <string name="style_horizon">Horizon</string>
     <string name="style_horizon_desc">השמיים עוקבים אחר שעות היום</string>
     <string name="style_centre">Centre Line</string>

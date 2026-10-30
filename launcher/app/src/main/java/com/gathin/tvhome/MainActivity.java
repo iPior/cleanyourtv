@@ -384,6 +384,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (nightSky != null) nightSky.update();
             if (lampRoom != null) updateLampEvening();
             if (horizonSky != null) horizonSky.update();
+            if (minutesTimeline != null) minutesTimeline.tick();
             wallpaperPlayer.update();
             handler.postDelayed(this, MINUTE_MS);
         }
@@ -809,6 +810,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
             int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
+            // Minutes: Right from the last button goes on to the timeline beside the clock column.
+            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton && minutesTimeline != null) {
+                minutesTimeline.focus();
+                return true;
+            }
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
         btnInputs.setOnKeyListener(pillKeys);
@@ -831,12 +837,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cfg.homeStyle == HomeStyle.CENTRE) applyCentreLine();
         if (cfg.homeStyle == HomeStyle.LAMP) applyLamp();
         if (cfg.homeStyle == HomeStyle.HORIZON) applyHorizon();
-        if (cfg.homeStyle == HomeStyle.MINUTES) applyMinutes();
+        if (cfg.homeStyle == HomeStyle.MINUTES) applyMinutes(cfg.netflixPosters);
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
+            // Remembered only when focus moves there, not when Home starts with it there for a moment.
+            if (minutes && oldF != null && newF != null && newF.getParent() == findViewById(R.id.topButtons)) minutesButton = newF;
             if (horizonGlow != null && !onTile) horizonGlow.setColor(0, animations && !reducedMotion);
             if (horizonPicture != null && !(watchRow != null && watchRow.owns(newF))) {
                 skyProgram = null;
@@ -1012,6 +1020,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (openLiveTvAfterBoot()) return;
         if (watchRow != null) watchRow.refresh();
+        if (minutesTimeline != null) minutesTimeline.refresh();
         updateGreeting();
         updateRace();
         // The network and Inputs pills keep their state while Home is in the background, and callbacks update them
@@ -2260,6 +2269,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Minutes: the clock column at the left with the top buttons under the date. */
     private boolean minutes;
+    /** Minutes' timeline of shows, in place of the Continue watching row; null in every other look. */
+    private MinutesTimeline minutesTimeline;
+    /** The top button focused last in Minutes, where Left and Up from the timeline go back to. */
+    private View minutesButton;
     /** Minutes' colours: chalk text, a muted lilac grey, the mint of focus, and the faint grey of the hint. */
     private static final int MINUTES_TEXT = 0xFFECE8F4, MINUTES_MUTE = 0xFF8A84A0, MINUTES_MINT = 0xFF7BE0B5,
             MINUTES_HINT = 0xFF5A5470;
@@ -2269,7 +2282,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * with Inputs, Themes and Settings as rounded squares under the date; a mint ring on the focused tile instead of
      * the glass. The right side is kept for the timeline of shows.
      */
-    private void applyMinutes() {
+    private void applyMinutes(boolean netflixPosters) {
         minutes = true;
         framedCards = true;
         LampDim.lampLook();
@@ -2393,12 +2406,51 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         setDockGap(Math.round(140 * density));
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+
+        // The timeline at the right, under the glass like the row it replaces; placed by alignMinutesColumn.
+        Typeface title = own ? getResources().getFont(R.font.schibsted_semibold) : UiFont.get(this, R.string.font_medium);
+        Typeface meta = own ? getResources().getFont(R.font.minutes_mono_regular) : UiFont.get(this, R.string.font_regular);
+        minutesTimeline = new MinutesTimeline(this, minutesHost, animations && !reducedMotion, title, meta, mono);
+        minutesTimeline.setNetflixPosters(netflixPosters);
+        root.addView(minutesTimeline, root.indexOfChild(glass), new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private final MinutesTimeline.Host minutesHost = new MinutesTimeline.Host() {
+        @Override
+        public void onTimelineFocused(View row, WatchNext.Program program) {
+            // The room's glow takes the show's colour here (next step).
+        }
+
+        @Override
+        public void onTimelineLeave() {
+            minutesButton().requestFocus();
+        }
+
+        @Override
+        public void onTimelineDown() {
+            focusTile(lastFocused % COLUMNS);
+        }
+    };
+
+    /** The top button to return to from the timeline or the dock: the one focused last, else Settings, the nearest. */
+    private View minutesButton() {
+        if (minutesButton != null && minutesButton.isShown()) return minutesButton;
+        return findViewById(R.id.btnSettings);
     }
 
     /** Moves the clock column and its buttons so their left edge meets the first dock tile's. */
     private void alignMinutesColumn() {
         float x = firstTileLeft(Float.NaN);
         if (Float.isNaN(x)) return;
+        // The timeline from 256 dp right of the column, room for the widest time ("12:59 PM"), to the dock's right edge.
+        RecyclerView.ViewHolder end = grid.findViewHolderForAdapterPosition(Math.min(COLUMNS, adapter.appCount()) - 1);
+        View endCard = end == null ? null : end.itemView.findViewById(R.id.card);
+        if (minutesTimeline != null && endCard != null && endCard.getWidth() > 0) {
+            Rect e = new Rect(0, 0, endCard.getWidth(), endCard.getHeight());
+            root.offsetDescendantRectToMyCoords(endCard, e);
+            minutesTimeline.place(Math.round(x + 256 * density), e.right);
+        }
         Rect r = new Rect(0, 0, clockBlock.getWidth(), clockBlock.getHeight());
         root.offsetDescendantRectToMyCoords(clockBlock, r);
         float dx = x - r.left;
@@ -2485,6 +2537,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
         if (watchRow != null) showWatchRow(y);
+        if (minutesTimeline != null) minutesTimeline.setWanted(true);
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
 
         if (!animations || reducedMotion) {
@@ -2758,6 +2811,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void showGlowOnly(int position) {
         if (watchRow != null) watchRow.hide();
+        if (minutesTimeline != null) minutesTimeline.setWanted(false);
         hideDockLabels();
         int color = adapter.ambientColorAt(position);
         stopAmbientAnimation();
@@ -2786,6 +2840,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void hideHero() {
         if (watchRow != null) watchRow.hide();
+        if (minutesTimeline != null) minutesTimeline.setWanted(false);
         hideDockLabels();
         if (!heroShown) return;
         stopAmbientAnimation();
@@ -3036,8 +3091,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
             // Dock row: up to Continue watching when it is showing, else let focus move to the top bar.
-            // Minutes' buttons are in the left column, which the focus finder would not pick: go there by hand.
-            if (position < COLUMNS && minutes) return btnInputs.requestFocus();
+            // Minutes: up to the timeline, or with no shows to the buttons in the clock column, which the focus finder
+            // would not pick.
+            if (position < COLUMNS && minutes) {
+                return minutesTimeline != null && minutesTimeline.focus() || minutesButton().requestFocus();
+            }
             if (position < COLUMNS) return watchRow != null && watchRow.focus(position);
             target = position - COLUMNS;
         } else {

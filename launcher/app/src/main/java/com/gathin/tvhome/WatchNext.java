@@ -110,6 +110,23 @@ final class WatchNext {
         return out;
     }
 
+    /**
+     * Minutes' timeline: the rows with a position and a duration, shortest time left first, at most limit. A "next
+     * episode" row, with no position, has no time left to show and is left out.
+     */
+    static List<Program> byTimeLeft(List<Program> rows, int limit) {
+        List<Program> out = new ArrayList<>();
+        for (Program p : rows) if (p.progress() > 0f) out.add(p);
+        Collections.sort(out, (a, b) -> Long.compare(a.duration - a.position, b.duration - b.position));
+        return out.size() > limit ? new ArrayList<>(out.subList(0, limit)) : out;
+    }
+
+    /** Whole minutes left in a program with a position, at least 1; -1 without one. */
+    static int minutesLeft(Program p) {
+        if (p.progress() <= 0f) return -1;
+        return (int) Math.max(1L, Math.round((p.duration - p.position) / 60000.0));
+    }
+
     /** True when both lists would draw the same row. */
     static boolean same(List<Program> a, List<Program> b) {
         if (a.size() != b.size()) return false;

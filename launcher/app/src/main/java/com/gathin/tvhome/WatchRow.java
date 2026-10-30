@@ -317,6 +317,11 @@ final class WatchRow {
     }
 
     private void open(WatchNext.Program p) {
+        open(activity, p);
+    }
+
+    /** Opens the program where the app left it, else the app itself, else says it is not available. */
+    static void open(Activity activity, WatchNext.Program p) {
         Intent i = WatchNext.intent(p);
         if (i != null) {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -405,6 +410,35 @@ final class WatchRow {
     private Bitmap cardArt(Bitmap poster) {
         if (!tallFromTop || poster.getHeight() <= poster.getWidth()) return poster;
         return Bitmap.createBitmap(poster, 0, 0, poster.getWidth(), Math.round(poster.getWidth() * 9f / 16f));
+    }
+
+    /** Callers waiting for a poster that poster() is decoding, by URI (main thread). */
+    private static final java.util.Map<String, List<java.util.function.Consumer<Bitmap>>> WAITING = new java.util.HashMap<>();
+
+    /**
+     * A program's poster at card size for a view other than the row (Minutes' timeline): from the cache at once, else
+     * decoded on the posters' thread and handed to done on the main thread. Nothing comes back for a poster that
+     * cannot load (on the web, with netflix_posters off) or fails to.
+     */
+    static void poster(Context app, String uri, int width, boolean netflix, java.util.function.Consumer<Bitmap> done) {
+        if (!(WatchNext.localPoster(uri) || netflix && NetflixPosters.allowed(uri))) return;
+        Bitmap cached = CACHE.get(uri);
+        if (cached != null) {
+            done.accept(cached);
+            return;
+        }
+        List<java.util.function.Consumer<Bitmap>> waiting = WAITING.computeIfAbsent(uri, k -> new ArrayList<>());
+        waiting.add(done);
+        if (waiting.size() > 1) return;
+        POSTERS.execute(() -> {
+            Bitmap b = decode(app, uri, width);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                List<java.util.function.Consumer<Bitmap>> all = WAITING.remove(uri);
+                if (b == null || all == null) return;
+                CACHE.put(uri, b);
+                for (java.util.function.Consumer<Bitmap> c : all) c.accept(b);
+            });
+        });
     }
 
     /** The poster already decoded at card size, or null. */

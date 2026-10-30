@@ -102,4 +102,29 @@ public class WatchNextTest {
         assertEquals(4, WatchNext.sampleSize(1920, 300));
         assertEquals(1, WatchNext.sampleSize(1920, 0));
     }
+
+    @Test public void theTimelineIsShortestTimeLeftFirst() {
+        List<WatchNext.Program> out = WatchNext.byTimeLeft(Arrays.asList(
+                p("a", "Long", 0, 1, 10 * 60000L, 120 * 60000L),
+                p("b", "Short", 0, 2, 40 * 60000L, 50 * 60000L),
+                p("c", "Middle", 0, 3, 0, 0),
+                p("d", "Half", 0, 4, 30 * 60000L, 60 * 60000L)), 5);
+        assertEquals(3, out.size());
+        assertEquals("Short", out.get(0).title);
+        assertEquals("Half", out.get(1).title);
+        assertEquals("Long", out.get(2).title);
+    }
+
+    @Test public void theTimelineLeavesOutNextEpisodesAndKeepsTheLimit() {
+        List<WatchNext.Program> out = WatchNext.byTimeLeft(Arrays.asList(
+                p("a", "Next", 1, 1, 0, 0), p("b", "One", 0, 1, 1, 100), p("c", "Two", 0, 1, 2, 100)), 1);
+        assertEquals(1, out.size());
+        assertEquals("Two", out.get(0).title);
+    }
+
+    @Test public void minutesLeftRoundsAndNeverShowsZero() {
+        assertEquals(18, WatchNext.minutesLeft(p("a", "Show", 0, 1, 42 * 60000L, 60 * 60000L)));
+        assertEquals(1, WatchNext.minutesLeft(p("a", "Show", 0, 1, 60 * 60000L - 5000L, 60 * 60000L)));
+        assertEquals(-1, WatchNext.minutesLeft(p("a", "Show", 1, 1, 0, 0)));
+    }
 }
