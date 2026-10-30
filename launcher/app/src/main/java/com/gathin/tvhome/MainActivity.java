@@ -461,6 +461,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroMeta = findViewById(R.id.heroMeta);
         heroDots = findViewById(R.id.heroDots);
         heroArt = findViewById(R.id.heroArt);
+        AppAdapter.columnGapPx = cfg.homeStyle == HomeStyle.FEATURE ? Math.round(14 * density) : 0;
         cinematic = cfg.cinematicHome;
         glowStyle = cfg.glowStyle;
         heroDotsShown = cfg.cinematicDots;
@@ -644,6 +645,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // A single row never shows the names under its tiles (the title above the row names the app), so the
             // 7dp gap and 22dp label item_app.xml keeps for them would only lift the row: sit it that much lower.
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);
+            // Feature's dock rests lower, where its mock-up has it, leaving the banner its height.
+            if (cfg.homeStyle == HomeStyle.FEATURE) want += (int) (48 * density);
             if (grid.getPaddingTop() != want) {
                 grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
                 // A vertical grid parks the dock on the new padding line by scrolling (onTileFocused); a sideways
@@ -838,6 +841,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (cfg.homeStyle == HomeStyle.LAMP) applyLamp();
         if (cfg.homeStyle == HomeStyle.HORIZON) applyHorizon();
         if (cfg.homeStyle == HomeStyle.MINUTES) applyMinutes(cfg.netflixPosters);
+        if (cfg.homeStyle == HomeStyle.FEATURE) applyFeature();
 
         // Hide the glass when focus leaves the tiles.
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
@@ -2474,6 +2478,131 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return d;
     }
 
+    // ---- Feature (HomeStyle.FEATURE) ----------------------------------------------------------------
+
+    /** Feature: its hint sits closer under the dock, in the little room left below it. */
+    private boolean feature;
+    /** Feature's colours: bone text, a slate grey, the amber of the film strip, and the room's ink. */
+    private static final int FEATURE_TEXT = 0xFFEDE6D6, FEATURE_MUTE = 0xFF8A90A0, FEATURE_AMBER = 0xFFF2B544,
+            FEATURE_INK = 0xFF0B0D12;
+
+    /**
+     * Feature: the cinema room, the time and date on one small line at the top left, round icons at the top right, an
+     * amber ring on the focused tile instead of the glass, and spaced capitals over the rows. The space above the row
+     * is kept for the banner.
+     */
+    private void applyFeature() {
+        feature = true;
+        framedCards = true;
+        LampDim.lampLook();
+        LampDim.dims = false;
+        LampDim.ringColor = FEATURE_AMBER;
+        LampDim.ringAlpha = 1f;
+        LampDim.ringDp = 2f;
+        if (watchRow != null) watchRow.setDimCards(true);
+        glass.setVisibility(View.INVISIBLE);
+
+        // Tiles and text 96 px from the screen's edges, as in the mock-up: the columns reach 14 px past that (half
+        // their gap), the grid keeps its own 20 px, and the header comes back in by the rest.
+        View header = (View) clockBlock.getParent();
+        View content = (View) header.getParent();
+        content.setPaddingRelative(Math.round(31 * density), content.getPaddingTop(), Math.round(31 * density), content.getPaddingBottom());
+        ViewGroup.MarginLayoutParams hlp = (ViewGroup.MarginLayoutParams) header.getLayoutParams();
+        hlp.setMarginStart(Math.round(17 * density));
+        hlp.setMarginEnd(Math.round(17 * density));
+        ((ViewGroup.MarginLayoutParams) clockBlock.getLayoutParams()).topMargin = Math.round(8 * density);
+
+        // Manrope, as in the mock-up; Outfit where the locale needs a system family (UiFont.bundled).
+        boolean own = UiFont.bundled(this);
+        Typeface medium = own ? getResources().getFont(R.font.manrope_medium) : UiFont.get(this, R.string.font_medium);
+        Typeface bold = own ? getResources().getFont(R.font.manrope_bold) : UiFont.get(this, R.string.font_medium);
+        Typeface extraBold = own ? getResources().getFont(R.font.manrope_extrabold) : UiFont.get(this, R.string.font_medium);
+
+        // The time in bold bone with the date beside it in slate, no divider, one small line.
+        TextView clock = findViewById(R.id.clock);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        clock.setTextColor(FEATURE_TEXT);
+        clock.setTypeface(bold);
+        TextView ampm = findViewById(R.id.ampm);
+        ampm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        ampm.setTextColor(FEATURE_TEXT);
+        ampm.setTypeface(bold);
+        LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) ampm.getLayoutParams();
+        alp.gravity = -1;
+        alp.bottomMargin = 0;
+        alp.setMarginStart(Math.round(3 * density));
+        ampm.setLayoutParams(alp);
+        findViewById(R.id.clockDivider).setVisibility(View.GONE);
+        TextView date = findViewById(R.id.date);
+        date.setAllCaps(false);
+        date.setLetterSpacing(0f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        date.setTextColor(FEATURE_MUTE);
+        date.setTypeface(medium);
+        ((ViewGroup.MarginLayoutParams) ((View) date.getParent()).getLayoutParams()).setMarginStart(Math.round(7 * density));
+
+        // "CONTINUE WATCHING" and "APPS" alike, in spaced capitals; the hint a little lighter.
+        if (watchRow != null) watchRow.setLabelStyle(true, 11f, FEATURE_MUTE, 0.2f, extraBold);
+        if (dockLabel != null) {
+            dockLabel.setAllCaps(true);
+            dockLabel.setTypeface(extraBold);
+            dockLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            dockLabel.setLetterSpacing(0.2f);
+            dockLabel.setTextColor(FEATURE_MUTE);
+            moreAppsHint.setAllCaps(true);
+            moreAppsHint.setTypeface(bold);
+            moreAppsHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            moreAppsHint.setLetterSpacing(0.2f);
+            moreAppsHint.setTextColor(FEATURE_MUTE);
+        }
+        setDockGap(Math.round(140 * density));
+
+        // The icons at the top, in circles over the room; bone with an ink icon when focused.
+        ViewGroup bar = findViewById(R.id.topButtons);
+        RelativeLayout.LayoutParams tlp = (RelativeLayout.LayoutParams) bar.getLayoutParams();
+        tlp.removeRule(RelativeLayout.ALIGN_BOTTOM);
+        tlp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        tlp.topMargin = 0;
+        bar.setLayoutParams(tlp);
+        int[][] states = {{android.R.attr.state_focused}, {}};
+        android.content.res.ColorStateList ink = new android.content.res.ColorStateList(states,
+                new int[]{FEATURE_INK, FEATURE_TEXT});
+        int size = Math.round(36 * density), icon = Math.round(17 * density), pad = (size - icon) / 2;
+        boolean first = true;
+        for (int i = 0; i < bar.getChildCount(); i++) {
+            View b = bar.getChildAt(i);
+            if (!(b instanceof TextView) || b.getVisibility() != View.VISIBLE) continue;
+            TextView t = (TextView) b;
+            android.graphics.drawable.StateListDrawable circle = new android.graphics.drawable.StateListDrawable();
+            circle.addState(states[0], featureCircle(FEATURE_TEXT, FEATURE_TEXT));
+            circle.addState(states[1], featureCircle(FEATURE_TEXT & 0x00FFFFFF | 0x2E000000, FEATURE_INK & 0x00FFFFFF | 0x8C000000));
+            t.setBackground(circle);
+            Drawable d = t.getCompoundDrawablesRelative()[0];
+            if (d != null) {
+                d.setBounds(0, 0, icon, icon);
+                t.setCompoundDrawablesRelative(d, null, null, null);
+            }
+            t.setCompoundDrawableTintList(ink);
+            t.setPaddingRelative(pad, 0, pad, 0);
+            ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) t.getLayoutParams();
+            lp.width = size;
+            lp.height = size;
+            lp.setMarginStart(first ? 0 : Math.round(7 * density));
+            t.setLayoutParams(lp);
+            first = false;
+        }
+        for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+    }
+
+    /** A Feature top button's circle: a 1 dp outline in line, filled with fill. */
+    private GradientDrawable featureCircle(int line, int fill) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(fill);
+        d.setStroke(Math.max(1, Math.round(density)), line);
+        return d;
+    }
+
     // ---- dock labels (config.xml dock_labels) ----------------------------------------------------
 
     /** dock_labels: "Apps" over the dock and "↓ N more apps" under it; null when off. */
@@ -2510,7 +2639,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The same distance from the label's top to the tiles as the Continue watching row's (WatchRow.LABEL_ROOM_DP).
         dockLabel.setY(dockTop - WatchRow.LABEL_ROOM_DP * density);
         moreAppsHint.setX(x);
-        moreAppsHint.setY(dockBottom + 22 * density);
+        moreAppsHint.setY(dockBottom + (feature ? 9 : 22) * density);
         for (View v : new View[]{dockLabel, moreAppsHint}) {
             if (v.getAlpha() >= 1f) continue;
             if (animations && !reducedMotion) v.animate().alpha(1f).setDuration(200).start(); else v.setAlpha(1f);

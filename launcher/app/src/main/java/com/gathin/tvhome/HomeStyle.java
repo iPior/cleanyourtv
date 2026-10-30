@@ -15,7 +15,7 @@ import java.util.Iterator;
  */
 enum HomeStyle {
     FEATURE("feature", R.string.style_feature, R.string.style_feature_desc, 0xFF0B0D12, 0xFFF2B544,
-            "{\"background_color\": \"#0B0D12\", \"cinematic_home\": true}"),
+            "{\"background_color\": \"#0B0D12\", \"ambient_glow\": false, \"show_greeting\": false, \"dock_band\": false}"),
     MINUTES("minutes", R.string.style_minutes, R.string.style_minutes_desc, 0xFF14121F, 0xFF7BE0B5,
             "{\"background_color\": \"#14121F\", \"ambient_glow\": false, \"dock_band\": false}"),
     HORIZON("horizon", R.string.style_horizon, R.string.style_horizon_desc, 0xFF0E1834, 0xFFF4F2EE,
@@ -66,6 +66,7 @@ enum HomeStyle {
     /** App tiles' height against the usual 16:9; shorter in the looks with their own layout, so the shows stand out. */
     float tileHeightScale() {
         if (this == HORIZON) return 0.75f;   // the mock-up's 136 px tiles under 182 px cards
+        if (this == FEATURE) return 0.725f;   // the mock-up's 132 px tiles under 182 px cards
         return this == CENTRE || this == LAMP || this == MINUTES ? 0.8f : 1f;
     }
 

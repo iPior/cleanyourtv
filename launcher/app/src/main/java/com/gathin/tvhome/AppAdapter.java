@@ -109,9 +109,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         int design = Math.round(DESIGN_W_DP * density);
         if (innerWidthPx <= 0 || columns <= 0) return design;
         int cell = innerWidthPx / columns;
+        if (columnGapPx > 0) return cell - columnGapPx;
         int fit = (int) ((cell - 12 * density) / FOCUS_SCALE);
         return Math.max(Math.round(80 * density), Math.min(design, fit));
     }
+
+    /** Feature: tiles fill their column but for this gap, as in its mock-up, however large; 0 in every other look. */
+    static int columnGapPx;
 
     /** The look's tile height against 16:9 (HomeStyle.tileHeightScale); 1 for every other look. */
     private final float tileHeightScale;
