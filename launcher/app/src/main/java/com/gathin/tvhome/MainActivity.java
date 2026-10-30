@@ -4109,7 +4109,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         panel.setTranslationY(-8 * density);
         // Minutes keeps the top buttons in the left column: its menus grow rightwards from them.
         if (minutes && gravity == Gravity.END) gravity = Gravity.START;
-        popup.showAsDropDown(anchor, 0, (int) (10 * density), gravity);
+        // ...and from the column's left edge, under Inputs, whichever button opened them.
+        int x = minutes && anchor.getParent() == findViewById(R.id.topButtons) ? -anchor.getLeft() : 0;
+        popup.showAsDropDown(anchor, x, (int) (10 * density), gravity);
         panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(reducedMotion ? Motion.REDUCED_MS : 220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
     }
