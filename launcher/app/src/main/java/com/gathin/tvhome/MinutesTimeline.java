@@ -412,7 +412,7 @@ final class MinutesTimeline extends FrameLayout {
                 art.setScaleType(ImageView.ScaleType.FIT_CENTER);
             }
             colour = picture == null ? LILAC : AppAdapter.vividColor(picture);
-            thumb.setBackground(glow(colour == 0 ? LILAC : colour));
+            thumb.setBackground(glow(colour == 0 ? LILAC : colour, poster == null));
             if (picture == null) return;
             art.setImageDrawable(picture);
             FrameLayout.LayoutParams al = poster != null
@@ -432,12 +432,12 @@ final class MinutesTimeline extends FrameLayout {
             }
         }
 
-        /** The night of the thumbnail with a soft glow of colour at its middle. */
-        private Drawable glow(int colour) {
+        /** The night of the thumbnail with a soft glow of colour at its middle; stronger behind a banner (no picture). */
+        private Drawable glow(int colour, boolean strong) {
             GradientDrawable g = new GradientDrawable();
             g.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-            g.setGradientRadius(px(40));
-            g.setColors(new int[]{colour & 0x00FFFFFF | 0x66000000, colour & 0x00FFFFFF});
+            g.setGradientRadius(px(strong ? 48 : 40));
+            g.setColors(new int[]{colour & 0x00FFFFFF | (strong ? 0xB3000000 : 0x66000000), colour & 0x00FFFFFF});
             return new LayerDrawable(new Drawable[]{new ColorDrawable(DEEP), g});
         }
     }
