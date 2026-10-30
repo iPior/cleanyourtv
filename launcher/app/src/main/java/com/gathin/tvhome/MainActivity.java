@@ -844,7 +844,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             boolean onTile = newF != null && (newF.getId() == R.id.card || watchRow != null && watchRow.owns(newF));
             if (!onTile) hideGlass();
             // Remembered only when focus moves there, not when Home starts with it there for a moment.
-            if (minutes && oldF != null && newF != null && newF.getParent() == findViewById(R.id.topButtons)) minutesButton = newF;
+            if (minutes && newF != null && newF.getParent() == findViewById(R.id.topButtons)) {
+                if (oldF != null) minutesButton = newF;
+                minutesRoom.setColor(MinutesRoom.LILAC, animations && !reducedMotion);
+            }
             if (horizonGlow != null && !onTile) horizonGlow.setColor(0, animations && !reducedMotion);
             if (horizonPicture != null && !(watchRow != null && watchRow.owns(newF))) {
                 skyProgram = null;
@@ -2269,6 +2272,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Minutes: the clock column at the left with the top buttons under the date. */
     private boolean minutes;
+    /** Minutes' room, whose glow takes the focused item's colour; null in every other look. */
+    private MinutesRoom minutesRoom;
     /** Minutes' timeline of shows, in place of the Continue watching row; null in every other look. */
     private MinutesTimeline minutesTimeline;
     /** The top button focused last in Minutes, where Left and Up from the timeline go back to. */
@@ -2291,7 +2296,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         LampDim.ringAlpha = 1f;
         LampDim.ringDp = 2f;
         glass.setVisibility(View.INVISIBLE);
-        root.addView(new MinutesRoom(this), 0, new FrameLayout.LayoutParams(
+        minutesRoom = new MinutesRoom(this);
+        root.addView(minutesRoom, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         // Schibsted Grotesk for the clock and the date, Minutes Mono (IBM Plex Mono) for the greeting and labels, as
@@ -2418,8 +2424,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private final MinutesTimeline.Host minutesHost = new MinutesTimeline.Host() {
         @Override
-        public void onTimelineFocused(View row, WatchNext.Program program) {
-            // The room's glow takes the show's colour here (next step).
+        public void onTimelineFocused(View row, WatchNext.Program program, int colour) {
+            if (colour != 0) minutesRoom.setColor(colour, animations && !reducedMotion);
         }
 
         @Override
@@ -2538,6 +2544,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         boolean changed = !label.contentEquals(heroName.getText());
         if (watchRow != null) showWatchRow(y);
         if (minutesTimeline != null) minutesTimeline.setWanted(true);
+        if (minutesRoom != null) minutesRoom.setColor(color, animations && !reducedMotion);
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
 
         if (!animations || reducedMotion) {
@@ -2814,6 +2821,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (minutesTimeline != null) minutesTimeline.setWanted(false);
         hideDockLabels();
         int color = adapter.ambientColorAt(position);
+        if (minutesRoom != null) minutesRoom.setColor(color, animations && !reducedMotion);
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();

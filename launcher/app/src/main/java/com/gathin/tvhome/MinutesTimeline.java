@@ -38,8 +38,8 @@ import java.util.concurrent.Executors;
 final class MinutesTimeline extends FrameLayout {
 
     interface Host {
-        /** A row took focus. */
-        void onTimelineFocused(View row, WatchNext.Program program);
+        /** A row took focus, or its picture arrived while it had it: colour is the picture's (0: none yet). */
+        void onTimelineFocused(View row, WatchNext.Program program, int colour);
 
         /** Up from the first row, or Left from any: to the buttons in the clock column. */
         void onTimelineLeave();
@@ -248,6 +248,8 @@ final class MinutesTimeline extends FrameLayout {
         final TextView title, meta;
         final View marker, bar;
         final GradientDrawable fill, barShape;
+        /** The picture's colour, or the app's with no picture; the room's glow takes it while the row is focused. */
+        int colour;
 
         Row(WatchNext.Program p, int index) {
             this.program = p;
@@ -321,7 +323,7 @@ final class MinutesTimeline extends FrameLayout {
                 focusLook(has);
                 if (has) {
                     lastIndex = index;
-                    host.onTimelineFocused(v, program);
+                    host.onTimelineFocused(v, program, colour);
                 }
             });
             view.setOnClickListener(v -> WatchRow.open(activity, program));
@@ -387,10 +389,15 @@ final class MinutesTimeline extends FrameLayout {
         void showPicture(Bitmap poster) {
             if (poster != null && blank(poster)) poster = null;
             thumb.removeAllViews();
+            // Told again when the picture arrives while the row is focused, so the glow takes the poster's colour.
+            if (view.isFocused()) view.post(() -> {
+                if (view.isFocused()) host.onTimelineFocused(view, program, colour);
+            });
             ImageView art = new ImageView(activity);
             if (poster != null && poster.getWidth() >= poster.getHeight()) {
                 art.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 art.setImageBitmap(poster);
+                colour = AppAdapter.vividColor(art.getDrawable());
                 thumb.setBackground(new ColorDrawable(DEEP));
                 thumb.addView(art, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT));
@@ -404,7 +411,7 @@ final class MinutesTimeline extends FrameLayout {
                 picture = banner(program.pkg);
                 art.setScaleType(ImageView.ScaleType.FIT_CENTER);
             }
-            int colour = picture == null ? LILAC : AppAdapter.vividColor(picture);
+            colour = picture == null ? LILAC : AppAdapter.vividColor(picture);
             thumb.setBackground(glow(colour == 0 ? LILAC : colour));
             if (picture == null) return;
             art.setImageDrawable(picture);
