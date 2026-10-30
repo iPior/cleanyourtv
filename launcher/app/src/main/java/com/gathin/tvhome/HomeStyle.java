@@ -69,6 +69,11 @@ enum HomeStyle {
         return this == CENTRE || this == LAMP || this == MINUTES ? 0.8f : 1f;
     }
 
+    /** How much a focused app tile grows, or 0 for the launcher's own; Minutes' mock-up grows it only slightly. */
+    float focusScale() {
+        return this == MINUTES ? 1.04f : 0f;
+    }
+
     /** The tile height scale for an optional style. */
     static float tileHeightScale(HomeStyle style) {
         return style == null ? 1f : style.tileHeightScale();
