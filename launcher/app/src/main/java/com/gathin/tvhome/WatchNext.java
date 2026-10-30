@@ -78,6 +78,14 @@ final class WatchNext {
         }
     }
 
+    /** A subtitle's short part for a line of its own, "S4 E3" of "S4 E3 · Richmond's Got Talent"; null when it has none. */
+    static String episode(String subtitle) {
+        if (subtitle == null) return null;
+        int dot = subtitle.indexOf(" \u00B7 ");
+        String part = (dot < 0 ? subtitle : subtitle.substring(0, dot)).trim();
+        return part.isEmpty() ? null : part;
+    }
+
     interface Installed {
         boolean has(String pkg);
     }

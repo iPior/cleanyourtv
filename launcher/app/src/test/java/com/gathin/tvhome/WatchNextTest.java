@@ -127,4 +127,12 @@ public class WatchNextTest {
         assertEquals(1, WatchNext.minutesLeft(p("a", "Show", 0, 1, 60 * 60000L - 5000L, 60 * 60000L)));
         assertEquals(-1, WatchNext.minutesLeft(p("a", "Show", 1, 1, 0, 0)));
     }
+
+    @Test
+    public void episodeIsTheSubtitlesShortPart() {
+        assertEquals("S4 E3", WatchNext.episode("S4 E3 \u00B7 Richmond's Got Talent"));
+        assertEquals("Director's Cut", WatchNext.episode("Director's Cut"));
+        assertNull(WatchNext.episode("  "));
+        assertNull(WatchNext.episode(null));
+    }
 }

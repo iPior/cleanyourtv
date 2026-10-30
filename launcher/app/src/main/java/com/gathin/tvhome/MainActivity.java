@@ -1811,6 +1811,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
             if (horizonGlow != null) horizonGlow.setColor(pictureColor(card), animations && !reducedMotion);
             if (horizonPicture != null) showSkyPicture(program);
+            if (featureBanner != null) showFeatureBanner(program);
             if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
@@ -2482,6 +2483,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** Feature: its hint sits closer under the dock, in the little room left below it. */
     private boolean feature;
+    /** Feature's banner of the focused show; null in every other look. */
+    private FeatureBanner featureBanner;
+    /** The show on the banner, so a late sharp picture of another one is dropped. */
+    private WatchNext.Program featureProgram;
     /** Feature's colours: bone text, a slate grey, the amber of the film strip, and the room's ink. */
     private static final int FEATURE_TEXT = 0xFFEDE6D6, FEATURE_MUTE = 0xFF8A90A0, FEATURE_AMBER = 0xFFF2B544,
             FEATURE_INK = 0xFF0B0D12;
@@ -2592,6 +2597,31 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             first = false;
         }
         for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
+
+        // The banner behind everything; Big Shoulders is drawn in Outfit where the locale needs a system family.
+        Typeface poster = own ? getResources().getFont(R.font.big_shoulders_black) : UiFont.get(this, R.string.font_medium);
+        featureBanner = new FeatureBanner(this, animations && !reducedMotion, FEATURE_INK, FEATURE_AMBER, FEATURE_TEXT, extraBold, poster);
+        root.addView(featureBanner, 0, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    /** Puts the focused show on the banner: its name and line at once, its picture sharp when decoded. */
+    private void showFeatureBanner(WatchNext.Program program) {
+        String app;
+        try {
+            app = getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(program.pkg, 0)).toString();
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            app = program.pkg;   // uninstalled since the query
+        }
+        featureBanner.showText(program.key(), getString(R.string.feature_continue_on, app),
+                WatchNext.episode(program.subtitle), program.title);
+        featureProgram = program;
+        Bitmap small = WatchRow.cardPoster(program);
+        featureBanner.showPicture(small);
+        if (small == null) return;
+        watchRow.skyPoster(program, Math.round(root.getWidth() * 1320f / 1920f), big -> {
+            if (featureProgram == program) featureBanner.showPicture(big);
+        });
     }
 
     /** A Feature top button's circle: a 1 dp outline in line, filled with fill. */
@@ -2947,6 +2977,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     private void showGlowOnly(int position) {
         if (watchRow != null) watchRow.hide();
+        if (featureBanner != null) featureBanner.hide();
         if (minutesTimeline != null) minutesTimeline.setWanted(false);
         hideDockLabels();
         int color = adapter.ambientColorAt(position);
