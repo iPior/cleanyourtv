@@ -43,11 +43,16 @@ final class MinutesRoom extends View {
     MinutesRoom(Context context) {
         super(context);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        grain.setShader(grainShader());
+    }
+
+    /** The tile of specks, also over Feature's glows. */
+    static Shader grainShader() {
         int[] specks = new int[GRAIN * GRAIN];
         java.util.Random random = new java.util.Random(7);
         for (int i = 0; i < specks.length; i++) specks[i] = random.nextInt(4) << 24 | 0x00FFFFFF;
         Bitmap tile = Bitmap.createBitmap(specks, GRAIN, GRAIN, Bitmap.Config.ARGB_8888);
-        grain.setShader(new BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT));
+        return new BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT);
     }
 
     @Override

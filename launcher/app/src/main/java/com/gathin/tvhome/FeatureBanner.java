@@ -30,9 +30,12 @@ import java.util.List;
  */
 final class FeatureBanner extends FrameLayout {
     private static final float WIDTH_SHARE = 1320f / 1920f, HEIGHT_SHARE = 780f / 1080f;
+    /** The mock-up's upright poster: 260 by 390 px, 150 px down, 160 px in from the right. */
+    private static final float POSTER_W = 260f / 1920f, POSTER_H = 390f / 1080f, POSTER_TOP = 150f / 1080f, POSTER_RIGHT = 160f / 1920f;
+    private static final int SLATE = 0xFF161B26;
     private static final int PICTURE_FADE_MS = 500, TEXT_FADE_MS = 160;
-    /** A longer title takes the mock-up's smaller size. */
-    private static final int LONG_TITLE = 20;
+    /** The title's size, and the mock-up's smaller one for a title that would not fit on one line at it. */
+    private static final float TITLE_SP = 70f, LONG_TITLE_SP = 52f;
 
     private final float density;
     private final boolean animate;
@@ -139,12 +142,20 @@ final class FeatureBanner extends FrameLayout {
                 Math.min(lead.length(), line.length()), line.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         eyebrow.setText(line);
         title.setText(name);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, name.length() > LONG_TITLE ? 52f : 70f);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, TITLE_SP);
+        if (title.getPaint().measureText(name.toUpperCase(java.util.Locale.ROOT)) > copy.getLayoutParams().width) {
+            title.setTextSize(TypedValue.COMPLEX_UNIT_SP, LONG_TITLE_SP);
+        }
     }
 
-    /** Cross-fades to this picture; null leaves the room clear. */
-    void showPicture(Bitmap bitmap) {
-        picture.show(bitmap);
+    /** The width in px to decode a picture at: a tall poster needs only its card on screen. */
+    int pictureWidth(boolean tall) {
+        return Math.round(getWidth() * (tall ? POSTER_W : WIDTH_SHARE));
+    }
+
+    /** Cross-fades to this picture; null or Jellyfin's see-through placeholder gives the glow in the app's colour. */
+    void showPicture(Bitmap bitmap, int appColor) {
+        picture.show(bitmap == null || MinutesTimeline.blank(bitmap) ? null : bitmap, appColor);
     }
 
     private void fadeIn() {
@@ -162,35 +173,47 @@ final class FeatureBanner extends FrameLayout {
 
     /** The picture and the two washes of the room over it. */
     private final class Picture extends View {
+        /** A picture, or none, with what stands behind it and how far it has faded in. */
         private final class Layer {
             final Bitmap bitmap;
+            final int color;
+            final boolean tall;
             final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+            final Paint glow = new Paint(), base = new Paint();
             float alpha;
             ValueAnimator fade;
 
-            Layer(Bitmap bitmap) {
+            Layer(Bitmap bitmap, int color) {
                 this.bitmap = bitmap;
+                this.color = color;
+                tall = bitmap != null && bitmap.getHeight() > bitmap.getWidth();
+                base.setColor(bitmap == null ? SLATE : room);
             }
         }
 
         private final List<Layer> layers = new ArrayList<>();
         private final RectF area = new RectF();
-        private final Paint fromLeft = new Paint(), fromBottom = new Paint();
+        private final RectF poster = new RectF();
+        private final Paint fromLeft = new Paint(), fromBottom = new Paint(), grain = new Paint();
+        private final Paint shadow = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         Picture(Context context) {
             super(context);
             setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            grain.setShader(MinutesRoom.grainShader());
+            shadow.setShadowLayer(35f * density / 2f, 0f, 17f * density, 0xA6000000);
         }
 
-        void show(Bitmap bitmap) {
+        void show(Bitmap bitmap, int appColor) {
             Layer top = layers.isEmpty() ? null : layers.get(layers.size() - 1);
-            if (top != null && top.bitmap == bitmap) {
+            if (top != null && top.bitmap == bitmap && (bitmap != null || top.color == appColor)) {
                 fade(top, 1f);
                 return;
             }
             for (Layer l : new ArrayList<>(layers)) fade(l, 0f);
-            if (bitmap == null) return;
-            Layer l = new Layer(bitmap);
+            int color = bitmap == null ? appColor
+                    : AppAdapter.vividColor(new android.graphics.drawable.BitmapDrawable(getResources(), bitmap));
+            Layer l = new Layer(bitmap, color);
             shade(l);
             layers.add(l);
             fade(l, 1f);
@@ -233,33 +256,78 @@ final class FeatureBanner extends FrameLayout {
             fromLeft.setShader(new LinearGradient(left, 0, left + rw * 0.62f, 0,
                     new int[]{room, clear | 0xDB000000, clear}, new float[]{0f, 0.387f, 1f}, Shader.TileMode.CLAMP));
             fromBottom.setShader(new LinearGradient(0, rh * 0.96f, 0, rh * 0.52f, room, clear, Shader.TileMode.CLAMP));
+            poster.set(w - w * (POSTER_RIGHT + POSTER_W), h * POSTER_TOP, w - w * POSTER_RIGHT, h * (POSTER_TOP + POSTER_H));
             for (Layer l : layers) shade(l);
         }
 
         /** The picture cropped to cover the area: a tall poster from its top, the scene; a wide one from its middle. */
         private void shade(Layer l) {
             if (area.isEmpty()) return;
-            BitmapShader shader = new BitmapShader(l.bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
-            float bw = l.bitmap.getWidth(), bh = l.bitmap.getHeight();
-            float scale = Math.max(area.width() / bw, area.height() / bh);
+            if (l.bitmap == null) {
+                glow(l, 0.72f, 0.40f, 820f, 560f, 0x40);
+            } else if (l.tall) {
+                glow(l, 0.76f, 0.36f, 1000f, 720f, 0x66);
+                BitmapShader shader = new BitmapShader(l.bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                float scale = Math.max(poster.width() / l.bitmap.getWidth(), poster.height() / l.bitmap.getHeight());
+                Matrix m = new Matrix();
+                m.setScale(scale, scale);
+                m.postTranslate(poster.left, poster.top);
+                shader.setLocalMatrix(m);
+                l.paint.setShader(shader);
+            } else {
+                BitmapShader shader = new BitmapShader(l.bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
+                float bw = l.bitmap.getWidth(), bh = l.bitmap.getHeight();
+                float scale = Math.max(area.width() / bw, area.height() / bh);
+                Matrix m = new Matrix();
+                m.setScale(scale, scale);
+                m.postTranslate(area.centerX() - bw * scale / 2f, area.centerY() - bh * scale / 2f);
+                shader.setLocalMatrix(m);
+                l.paint.setShader(shader);
+            }
+        }
+
+        /** The mock-up's oval glow: centred at x, y of the area, its radii in the mock-up's px, strength of 255. */
+        private void glow(Layer l, float x, float y, float rx, float ry, int strength) {
+            float unit = getWidth() / 1920f, cx = area.left + area.width() * x, cy = area.height() * y;
+            int clear = l.color & 0x00FFFFFF;
+            android.graphics.RadialGradient oval = new android.graphics.RadialGradient(0f, 0f, 1f,
+                    clear | strength << 24, clear, Shader.TileMode.CLAMP);
             Matrix m = new Matrix();
-            m.setScale(scale, scale);
-            boolean tall = bh > bw;
-            m.postTranslate(area.centerX() - bw * scale / 2f, tall ? 0f : area.centerY() - bh * scale / 2f);
-            shader.setLocalMatrix(m);
-            l.paint.setShader(shader);
+            m.setScale(rx * unit * 0.7f, ry * unit * 0.7f);
+            m.postTranslate(cx, cy);
+            oval.setLocalMatrix(m);
+            l.glow.setShader(oval);
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             if (layers.isEmpty()) return;
             for (Layer l : layers) {
-                if (l.alpha <= 0f || l.paint.getShader() == null) continue;
-                l.paint.setAlpha(Math.round(l.alpha * 255));
-                canvas.drawRect(area, l.paint);
+                int alpha = Math.round(l.alpha * 255);
+                if (alpha <= 0) continue;
+                if (l.bitmap != null && !l.tall) {
+                    l.paint.setAlpha(alpha);
+                    canvas.drawRect(area, l.paint);
+                } else {
+                    l.base.setAlpha(alpha);
+                    canvas.drawRect(area, l.base);
+                    l.glow.setAlpha(alpha);
+                    canvas.drawRect(area, l.glow);
+                    grain.setAlpha(alpha);
+                    canvas.drawRect(area, grain);
+                }
             }
             canvas.drawRect(area, fromLeft);
             canvas.drawRect(area, fromBottom);
+            float r = 6f * density;
+            for (Layer l : layers) {
+                if (!l.tall || l.alpha <= 0f) continue;
+                int alpha = Math.round(l.alpha * 255);
+                shadow.setAlpha(alpha);
+                canvas.drawRoundRect(poster, r, r, shadow);
+                l.paint.setAlpha(alpha);
+                canvas.drawRoundRect(poster, r, r, l.paint);
+            }
         }
     }
 }

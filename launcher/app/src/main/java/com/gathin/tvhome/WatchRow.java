@@ -182,10 +182,7 @@ final class WatchRow {
 
     private void showPoster(String uri, Bitmap b) {
         for (int i = 0; i < programs.size() && i < arts.size(); i++) {
-            if (!uri.equals(programs.get(i).poster)) continue;
-            arts.get(i).setImageBitmap(cardArt(b));
-            arts.get(i).setImageAlpha(255);
-            titles.get(i).setVisibility(View.GONE);
+            if (uri.equals(programs.get(i).poster)) dress(i, b);
         }
     }
 
@@ -199,7 +196,9 @@ final class WatchRow {
         PackageManager pm = activity.getPackageManager();
         for (int i = 0; i < programs.size(); i++) {
             WatchNext.Program p = programs.get(i);
-            cards.add(card(p, p.poster == null ? null : CACHE.get(p.poster), pm, i));
+            Bitmap poster = p.poster == null ? null : CACHE.get(p.poster);
+            cards.add(card(p, poster, pm, i));
+            if (posterFont != null && poster != null) dress(i, poster);
         }
         if (lastIndex >= cards.size()) lastIndex = Math.max(0, cards.size() - 1);
     }
@@ -233,6 +232,7 @@ final class WatchRow {
             if (banner != null) {
                 art.setImageDrawable(banner);
                 art.setImageAlpha(60);
+                if (posterFont != null) card.setBackground(glow(AppAdapter.vividColor(banner)));
             }
         }
         card.addView(art, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -307,6 +307,79 @@ final class WatchRow {
         container.addView(card);
         if (dimCards) LampDim.apply(card, false, true, false);
         return card;
+    }
+
+    /** Feature's cards: a tall poster stands at the left with the title beside it, over a glow in its colours. */
+    private Typeface posterFont;
+    private int posterText, posterRoom;
+
+    void setPosterCards(Typeface font, int text, int room) {
+        posterFont = font;
+        posterText = text;
+        posterRoom = room;
+    }
+
+    /** Puts a decoded poster on card i. */
+    private void dress(int i, Bitmap poster) {
+        ImageView art = arts.get(i);
+        TextView t = titles.get(i);
+        if (posterFont == null) {
+            art.setImageBitmap(cardArt(poster));
+            art.setImageAlpha(255);
+            t.setVisibility(View.GONE);
+            return;
+        }
+        // Jellyfin's see-through placeholder stays as the no-picture look: the banner and the title over the glow.
+        if (MinutesTimeline.blank(poster)) return;
+        art.setImageBitmap(poster);
+        art.setImageAlpha(255);
+        if (poster.getHeight() <= poster.getWidth()) {
+            t.setVisibility(View.GONE);
+            return;
+        }
+        arts.get(i).setTag(TALL);
+        ((View) art.getParent()).setBackground(glow(AppAdapter.vividColor(art.getDrawable())));
+        t.setBackground(null);
+        t.setText(programs.get(i).title);
+        t.setAllCaps(true);
+        t.setTypeface(posterFont);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+        t.setTextColor(posterText);
+        t.setShadowLayer(0f, 0f, 0f, 0);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(0, 0, 0, 0);
+        t.setVisibility(View.VISIBLE);
+        fitTall(i);
+    }
+
+    private static final String TALL = "tall";
+
+    /** Card i's tall poster at its left, 121 of the mock-up's 323 px, with the title in the rest of the card. */
+    private void fitTall(int i) {
+        if (cardW <= 0 || !TALL.equals(arts.get(i).getTag())) return;
+        int w = Math.round(cardW * 121f / 323f);
+        FrameLayout.LayoutParams al = (FrameLayout.LayoutParams) arts.get(i).getLayoutParams();
+        al.width = w;
+        al.gravity = Gravity.START;
+        arts.get(i).setLayoutParams(al);
+        FrameLayout.LayoutParams tl = (FrameLayout.LayoutParams) titles.get(i).getLayoutParams();
+        tl.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        tl.leftMargin = w + Math.round(9 * density);
+        tl.rightMargin = Math.round(6 * density);
+        titles.get(i).setLayoutParams(tl);
+    }
+
+    /** The room with a soft round glow of this colour at the card's centre. */
+    private GradientDrawable glow(int color) {
+        int middle = android.graphics.Color.rgb(
+                (android.graphics.Color.red(posterRoom) * 2 + android.graphics.Color.red(color)) / 3,
+                (android.graphics.Color.green(posterRoom) * 2 + android.graphics.Color.green(color)) / 3,
+                (android.graphics.Color.blue(posterRoom) * 2 + android.graphics.Color.blue(color)) / 3);
+        GradientDrawable d = new GradientDrawable();
+        d.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        d.setGradientRadius(100 * density);
+        d.setColors(new int[]{middle, posterRoom});
+        return d;
     }
 
     private static GradientDrawable pill(int color) {
@@ -534,6 +607,7 @@ final class WatchRow {
             c.setLayoutParams(lp);
             c.setPivotX(cardW / 2f);
             c.setPivotY(cardH / 2f);
+            fitTall(i);
             // The progress fill's width depends on the card's.
             ViewGroup g = (ViewGroup) c;
             for (int j = 0; j < g.getChildCount(); j++) {

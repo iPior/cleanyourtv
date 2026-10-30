@@ -2600,6 +2600,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // The banner behind everything; Big Shoulders is drawn in Outfit where the locale needs a system family.
         Typeface poster = own ? getResources().getFont(R.font.big_shoulders_black) : UiFont.get(this, R.string.font_medium);
+        if (watchRow != null) watchRow.setPosterCards(poster, FEATURE_TEXT, 0xFF161B26);
         featureBanner = new FeatureBanner(this, animations && !reducedMotion, FEATURE_INK, FEATURE_AMBER, FEATURE_TEXT, FEATURE_MUTE,
                 extraBold, poster, medium);
         root.addView(featureBanner, 0, new FrameLayout.LayoutParams(
@@ -2621,12 +2622,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 WatchNext.episode(program.subtitle), program.title, left < 0 ? -1f : program.progress(),
                 Math.round(program.duration / 60000f), left < 0 ? null : timeLeft(left), ends);
         featureProgram = program;
+        int color = appColor(program.pkg);
         Bitmap small = WatchRow.cardPoster(program);
-        featureBanner.showPicture(small);
-        if (small == null) return;
-        watchRow.skyPoster(program, Math.round(root.getWidth() * 1320f / 1920f), big -> {
-            if (featureProgram == program) featureBanner.showPicture(big);
+        featureBanner.showPicture(small, color);
+        boolean tall = small != null && small.getHeight() > small.getWidth();
+        watchRow.skyPoster(program, featureBanner.pictureWidth(tall), big -> {
+            if (featureProgram == program) featureBanner.showPicture(big, color);
         });
+    }
+
+    /** An app's colour, from its banner. */
+    private int appColor(String pkg) {
+        try {
+            Drawable banner = getPackageManager().getApplicationBanner(pkg);
+            return AppAdapter.vividColor(banner != null ? banner : getPackageManager().getApplicationIcon(pkg));
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return FEATURE_MUTE;   // uninstalled since the query
+        }
     }
 
     /** A Feature top button's circle: a 1 dp outline in line, filled with fill. */

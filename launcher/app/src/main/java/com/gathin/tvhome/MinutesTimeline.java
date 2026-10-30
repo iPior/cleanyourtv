@@ -446,7 +446,7 @@ final class MinutesTimeline extends FrameLayout {
      * Whether a poster is mostly see-through: Jellyfin's placeholder for an item with no art is its small logo on a
      * transparent picture, which reads as no picture at all, so it gets the no-picture look.
      */
-    private static boolean blank(Bitmap b) {
+    static boolean blank(Bitmap b) {
         if (!b.hasAlpha()) return false;
         int clear = 0, n = 8;
         for (int y = 0; y < n; y++) {
