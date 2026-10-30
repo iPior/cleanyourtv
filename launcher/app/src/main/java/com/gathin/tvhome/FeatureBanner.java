@@ -17,6 +17,7 @@ import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -24,8 +25,8 @@ import java.util.List;
 
 /**
  * Feature's banner behind everything on Home: the focused show's picture at the top right, running into the room at
- * its left and bottom, with an amber line and the title in large poster capitals (the mock-up's 1320 by 780 px picture
- * and 980 px of text). The text fades out and back for each new show; pictures cross-fade over 0.5 s.
+ * its left and bottom, with an amber line, the title in large poster capitals and the film strip with the time left
+ * (the mock-up's 1320 by 780 px picture and 980 px of text). The text fades out and back for each new show; pictures cross-fade over 0.5 s.
  */
 final class FeatureBanner extends FrameLayout {
     private static final float WIDTH_SHARE = 1320f / 1920f, HEIGHT_SHARE = 780f / 1080f;
@@ -37,11 +38,13 @@ final class FeatureBanner extends FrameLayout {
     private final boolean animate;
     private final int room, bone;
     private final Picture picture;
-    private final TextView eyebrow, title;
-    private final FrameLayout copy;
+    private final TextView eyebrow, title, left;
+    private final LinearLayout copy, progress;
+    private final FeatureStrip strip;
     private String shownKey;
 
-    FeatureBanner(Context context, boolean animate, int room, int amber, int bone, Typeface eyebrowFont, Typeface titleFont) {
+    FeatureBanner(Context context, boolean animate, int room, int amber, int bone, int mute, Typeface eyebrowFont,
+                  Typeface titleFont, Typeface leftFont) {
         super(context);
         this.animate = animate;
         this.room = room;
@@ -52,10 +55,13 @@ final class FeatureBanner extends FrameLayout {
         picture = new Picture(context);
         addView(picture, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
-        copy = new FrameLayout(context);
-        LayoutParams clp = new LayoutParams(Math.round(490 * density), LayoutParams.WRAP_CONTENT);
+        copy = new LinearLayout(context);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        // Held at its bottom, just over the row's label: a two-line title grows up towards the clock, not into the row.
+        copy.setGravity(android.view.Gravity.BOTTOM);
+        LayoutParams clp = new LayoutParams(Math.round(490 * density), Math.round(173 * density));
         clp.leftMargin = Math.round(48 * density);
-        clp.topMargin = Math.round(113 * density);
+        clp.topMargin = Math.round(75 * density);
         addView(copy, clp);
 
         eyebrow = new TextView(context);
@@ -65,7 +71,7 @@ final class FeatureBanner extends FrameLayout {
         eyebrow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         eyebrow.setLetterSpacing(0.22f);
         eyebrow.setTypeface(eyebrowFont);
-        copy.addView(eyebrow, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        copy.addView(eyebrow, new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         title = new TextView(context);
         title.setMaxLines(2);
@@ -76,18 +82,47 @@ final class FeatureBanner extends FrameLayout {
         title.setIncludeFontPadding(false);
         title.setLineSpacing(0f, 0.86f);
         title.setLetterSpacing(0.005f);
-        LayoutParams tlp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        tlp.topMargin = Math.round(29 * density);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        tlp.topMargin = Math.round(10 * density);
         copy.addView(title, tlp);
+
+        // The strip with "18 min left · ends at 9:40 PM" beside it.
+        progress = new LinearLayout(context);
+        progress.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        plp.topMargin = Math.round(-4 * density);   // up into the title's font box, which is taller than its capitals
+        copy.addView(progress, plp);
+        strip = new FeatureStrip(context, animate, amber, bone, room);
+        progress.addView(strip, new LinearLayout.LayoutParams(strip.widthPx(), strip.heightPx()));
+        left = new TextView(context);
+        left.setSingleLine(true);
+        left.setTextColor(mute);
+        left.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        left.setTypeface(leftFont);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        llp.leftMargin = Math.round(14 * density);
+        progress.addView(left, llp);
     }
 
-    /** Fades to this show's text; key names the show, so focusing it again changes nothing. */
-    void showText(String key, String lead, String rest, String name) {
+    /**
+     * Fades to this show's text; key names the show, so focusing it again changes nothing. share is how far through it
+     * is (0..1) with the running time in minutes and the time left; below 0 leaves the strip out.
+     */
+    void showText(String key, String lead, String rest, String name, float share, int minutes, String timeLeft, String ends) {
         fadeIn();
         if (key.equals(shownKey)) return;
         shownKey = key;
         Runnable fill = () -> {
             fill(lead, rest, name);
+            progress.setVisibility(share < 0f ? GONE : VISIBLE);
+            if (share >= 0f) {
+                strip.set(share, minutes);
+                SpannableString time = new SpannableString(timeLeft + " \u00B7 " + ends);
+                time.setSpan(new ForegroundColorSpan(bone), 0, timeLeft.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                time.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, timeLeft.length(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                left.setText(time);
+            }
             if (animate) copy.animate().alpha(1f).setDuration(TEXT_FADE_MS).start();
             else copy.setAlpha(1f);
         };

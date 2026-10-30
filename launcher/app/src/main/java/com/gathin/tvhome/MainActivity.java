@@ -2600,7 +2600,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // The banner behind everything; Big Shoulders is drawn in Outfit where the locale needs a system family.
         Typeface poster = own ? getResources().getFont(R.font.big_shoulders_black) : UiFont.get(this, R.string.font_medium);
-        featureBanner = new FeatureBanner(this, animations && !reducedMotion, FEATURE_INK, FEATURE_AMBER, FEATURE_TEXT, extraBold, poster);
+        featureBanner = new FeatureBanner(this, animations && !reducedMotion, FEATURE_INK, FEATURE_AMBER, FEATURE_TEXT, FEATURE_MUTE,
+                extraBold, poster, medium);
         root.addView(featureBanner, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
@@ -2613,8 +2614,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } catch (android.content.pm.PackageManager.NameNotFoundException e) {
             app = program.pkg;   // uninstalled since the query
         }
+        int left = WatchNext.minutesLeft(program);
+        String ends = left < 0 ? null : getString(R.string.feature_ends_at, android.text.format.DateFormat.getTimeFormat(this)
+                .format(new java.util.Date(System.currentTimeMillis() + left * 60000L)));
         featureBanner.showText(program.key(), getString(R.string.feature_continue_on, app),
-                WatchNext.episode(program.subtitle), program.title);
+                WatchNext.episode(program.subtitle), program.title, left < 0 ? -1f : program.progress(),
+                Math.round(program.duration / 60000f), left < 0 ? null : timeLeft(left), ends);
         featureProgram = program;
         Bitmap small = WatchRow.cardPoster(program);
         featureBanner.showPicture(small);
