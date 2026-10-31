@@ -171,8 +171,6 @@
     <string name="style_centre_desc">Calm and centred</string>
     <string name="style_lamp">Lamp</string>
     <string name="style_lamp_desc">Dim and warm for evenings</string>
-    <string name="style_none">Original</string>
-    <string name="style_none_desc">The launcher as configured</string>
     <!-- dock_labels: the small label over the dock, and the hint under it; %1$d is the number of apps below. -->
     <string name="dock_label">Apps</string>
     <plurals name="more_apps">

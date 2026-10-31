@@ -3397,27 +3397,25 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             View row = addThemeRow(rows, popup, style, style == current);
             if (style == current || focus == null && current == null) focus = row;
         }
-        View none = addThemeRow(rows, popup, null, current == null);
-        if (current == null) focus = none;
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max((int) (300 * density), Math.min(panel.getMeasuredWidth(), (int) (420 * density))));
         dropIn(popup, panel, anchor, getResources().getBoolean(R.bool.rtl_menu_bar) ? Gravity.START : Gravity.END);
         focus.requestFocus();
     }
 
-    /** One row of the Themes list; null is the launcher's own look, as config.xml and the theme file make it. */
+    /** One row of the Themes list. */
     private View addThemeRow(LinearLayout rows, PopupWindow popup, HomeStyle style, boolean current) {
         View row = addInputRow(rows, popup, R.drawable.ic_palette,
-                getString(style == null ? R.string.style_none : style.name), -1, () -> pickStyle(style));
+                getString(style.name), -1, () -> pickStyle(style));
         ImageView icon = row.findViewById(R.id.icon);
         android.graphics.drawable.GradientDrawable swatch = new android.graphics.drawable.GradientDrawable();
         swatch.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        swatch.setColor(style == null ? 0xFF000000 : style.swatchBackground);
-        swatch.setStroke(Math.round(3 * density), style == null ? 0x99FFFFFF : style.swatchAccent);
+        swatch.setColor(style.swatchBackground);
+        swatch.setStroke(Math.round(3 * density), style.swatchAccent);
         icon.setImageTintList(null);
         icon.setImageDrawable(swatch);
         TextView status = row.findViewById(R.id.status);
-        status.setText(style == null ? R.string.style_none_desc : style.description);
+        status.setText(style.description);
         status.setVisibility(View.VISIBLE);
         row.findViewById(R.id.dot).setVisibility(current ? View.VISIBLE : View.GONE);
         return row;

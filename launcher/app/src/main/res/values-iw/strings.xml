@@ -164,8 +164,6 @@
     <string name="style_centre_desc">רגוע וממורכז</string>
     <string name="style_lamp">Lamp</string>
     <string name="style_lamp_desc">עמום וחמים לערב</string>
-    <string name="style_none">מקורי</string>
-    <string name="style_none_desc">המשגר כפי שהוגדר</string>
     <string name="dock_label">אפליקציות</string>
     <plurals name="more_apps">
         <item quantity="one">אפליקציה %1$d נוספת</item>
