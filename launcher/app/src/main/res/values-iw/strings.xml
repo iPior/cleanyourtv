@@ -150,6 +150,8 @@
     <string name="continue_watching">המשך צפייה</string>
     <string name="feature_continue_on">המשך ב־%1$s</string>
     <string name="feature_ends_at">מסתיים ב־%1$s</string>
+    <string name="feature_open">פתיחה</string>
+    <string name="feature_nothing_on">אין תוכן בצפייה</string>
     <string name="themes">ערכות נושא</string>
     <string name="style_feature">Feature</string>
     <string name="style_feature_desc">באנר בסגנון קולנוע</string>

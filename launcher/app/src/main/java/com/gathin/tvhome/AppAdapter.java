@@ -117,6 +117,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     /** Feature: tiles fill their column but for this gap, as in its mock-up, however large; 0 in every other look. */
     static int columnGapPx;
 
+    /** Feature: a bar in this colour shows under the focused tile (MainActivity); 0 in every other look. */
+    static int focusBarColor;
+    static final String FOCUS_BAR = "focusBar";
+
     /** The look's tile height against 16:9 (HomeStyle.tileHeightScale); 1 for every other look. */
     private final float tileHeightScale;
     /** A look's own focus scale (HomeStyle.focusScale), or 0 for the launcher's. */
@@ -463,6 +467,19 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             icon.setLayoutParams(iconLp);
             View label = v.findViewById(R.id.label);
             label.setPadding(label.getPaddingLeft(), label.getPaddingTop(), label.getPaddingRight(), Math.round(4f * density));
+        }
+        if (focusBarColor != 0) {
+            View bar = new View(parent.getContext());
+            bar.setTag(FOCUS_BAR);
+            GradientDrawable shape = new GradientDrawable();
+            shape.setColor(focusBarColor);
+            shape.setCornerRadius(2 * density);
+            bar.setBackground(shape);
+            bar.setAlpha(0f);
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(Math.round(w * 0.76f), Math.round(3 * density),
+                    android.view.Gravity.CENTER_HORIZONTAL | android.view.Gravity.TOP);
+            lp.topMargin = h + Math.round(3 * density);
+            ((ViewGroup) v).addView(bar, lp);
         }
         return new Holder(v, listener, animations, advancedEffects, reducedMotion, restNameAlpha, focusOvershoot, focusScale());
     }

@@ -74,6 +74,8 @@ final class WatchRow {
     /** Per card: its picture, and the title written over the app banner until the poster arrives. */
     private final List<ImageView> arts = new ArrayList<>();
     private final List<TextView> titles = new ArrayList<>();
+    /** Feature's app name under each card; empty in every other look. */
+    private final List<TextView> captions = new ArrayList<>();
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private List<WatchNext.Program> programs = Collections.emptyList();
@@ -154,6 +156,7 @@ final class WatchRow {
                 layout();
                 setShown(fits());
                 if (hadFocus && !focus()) host.onWatchDown(-1);
+                startOnRow();
             }
         }
         loadPosters();
@@ -190,7 +193,9 @@ final class WatchRow {
 
     private void buildCards() {
         for (View c : cards) container.removeView(c);
+        for (View c : captions) container.removeView(c);
         cards.clear();
+        captions.clear();
         arts.clear();
         titles.clear();
         PackageManager pm = activity.getPackageManager();
@@ -260,22 +265,24 @@ final class WatchRow {
 
         float progress = p.progress();
         if (progress >= 0f) {
-            int inset = Math.round(10 * density);
-            int barH = Math.max(2, Math.round(4 * density));
+            int inset = barInset();
+            int barH = Math.max(2, Math.round((posterFont != null ? 3 : 4) * density));
             View track = new View(activity);
-            track.setBackground(pill(0x59FFFFFF));
+            track.setBackground(posterFont != null ? new android.graphics.drawable.ColorDrawable(0x73000000) : pill(0x59FFFFFF));
             FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, barH, Gravity.BOTTOM);
             tl.setMargins(inset, 0, inset, inset);
             card.addView(track, tl);
             View fill = new View(activity);
-            fill.setBackground(pill(0xFFFFFFFF));
+            fill.setBackground(posterFont != null ? new android.graphics.drawable.ColorDrawable(posterAccent) : pill(0xFFFFFFFF));
             FrameLayout.LayoutParams fl = new FrameLayout.LayoutParams(0, barH, Gravity.BOTTOM | Gravity.START);
             fl.setMargins(inset, 0, 0, inset);
             card.addView(fill, fl);
             fill.setTag(progress);
         }
 
+        TextView caption = posterFont == null ? null : caption(p, pm);
         card.setOnFocusChangeListener((v, has) -> {
+            if (caption != null) caption.setTextColor(has ? posterText : posterMute);
             float s = has ? AppAdapter.FOCUS_SCALE : 1f;
             if (animations) v.animate().scaleX(s).scaleY(s).setDuration(200).start();
             else {
@@ -309,14 +316,58 @@ final class WatchRow {
         return card;
     }
 
-    /** Feature's cards: a tall poster stands at the left with the title beside it, over a glow in its colours. */
-    private Typeface posterFont;
-    private int posterText, posterRoom;
+    /**
+     * Feature's cards: a tall poster stands at the left with the title beside it, over a glow in its colours; the
+     * progress is a thin accent line along the bottom, and the app's name sits under the card.
+     */
+    private Typeface posterFont, captionFont;
+    private int posterText, posterRoom, posterAccent, posterMute;
+    /** Home opens on the first card, once, when there are any. */
+    private boolean startHere;
 
-    void setPosterCards(Typeface font, int text, int room) {
+    void setPosterCards(Typeface font, Typeface caption, int text, int room, int accent, int mute) {
         posterFont = font;
+        captionFont = caption;
         posterText = text;
         posterRoom = room;
+        posterAccent = accent;
+        posterMute = mute;
+        startHere = true;
+    }
+
+    private int barInset() {
+        return posterFont != null ? 0 : Math.round(10 * density);
+    }
+
+    private TextView caption(WatchNext.Program p, PackageManager pm) {
+        TextView t = new TextView(activity);
+        try {
+            t.setText(pm.getApplicationLabel(pm.getApplicationInfo(p.pkg, 0)));
+        } catch (PackageManager.NameNotFoundException e) {
+            t.setText("");   // uninstalled since the query
+        }
+        t.setSingleLine(true);
+        t.setTextColor(posterMute);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        t.setTypeface(captionFont);
+        t.setFocusable(false);
+        t.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        container.addView(t);
+        captions.add(t);
+        return t;
+    }
+
+    /** The newest card from this app, or null. */
+    WatchNext.Program newestFor(String pkg) {
+        for (WatchNext.Program p : programs) if (p.pkg.equals(pkg)) return p;
+        return null;
+    }
+
+    /** The first time the row is up with cards in it, Home moves onto the first one. */
+    private void startOnRow() {
+        if (!startHere || !isShown()) return;
+        startHere = false;
+        focus(0);
     }
 
     /** Puts a decoded poster on card i. */
@@ -438,6 +489,7 @@ final class WatchRow {
         if (resized || container.getVisibility() != View.VISIBLE) layout();
         else placeContainer();
         setShown(fits());
+        startOnRow();
     }
 
     /** Focus left the dock for the grid or the library, or Home is going away. */
@@ -597,6 +649,7 @@ final class WatchRow {
             View c = cards.get(i);
             if (i >= n) {
                 c.setVisibility(View.GONE);
+                if (i < captions.size()) captions.get(i).setVisibility(View.GONE);
                 continue;
             }
             c.setVisibility(View.VISIBLE);
@@ -608,12 +661,18 @@ final class WatchRow {
             c.setPivotX(cardW / 2f);
             c.setPivotY(cardH / 2f);
             fitTall(i);
+            if (i < captions.size()) {
+                FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(cardW, ViewGroup.LayoutParams.WRAP_CONTENT);
+                cl.topMargin = labelH() + cardH + Math.round(7 * density);
+                cl.leftMargin = lp.leftMargin;
+                captions.get(i).setLayoutParams(cl);
+            }
             // The progress fill's width depends on the card's.
             ViewGroup g = (ViewGroup) c;
             for (int j = 0; j < g.getChildCount(); j++) {
                 View f = g.getChildAt(j);
                 if (f.getTag() instanceof Float) {
-                    int inset = Math.round(10 * density);
+                    int inset = barInset();
                     f.getLayoutParams().width = Math.max(1, Math.round((cardW - 2 * inset) * (Float) f.getTag()));
                     f.requestLayout();
                 }

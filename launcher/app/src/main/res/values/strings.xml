@@ -155,6 +155,8 @@
     <string name="continue_watching">Continue watching</string>
     <string name="feature_continue_on">Continue on %1$s</string>
     <string name="feature_ends_at">ends at %1$s</string>
+    <string name="feature_open">Open</string>
+    <string name="feature_nothing_on">nothing in progress</string>
     <!-- Themes button (themes_button) and its list of built-in looks. -->
     <string name="themes">Themes</string>
     <string name="style_feature">Feature</string>

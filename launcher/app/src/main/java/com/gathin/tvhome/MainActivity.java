@@ -462,6 +462,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroDots = findViewById(R.id.heroDots);
         heroArt = findViewById(R.id.heroArt);
         AppAdapter.columnGapPx = cfg.homeStyle == HomeStyle.FEATURE ? Math.round(14 * density) : 0;
+        AppAdapter.focusBarColor = cfg.homeStyle == HomeStyle.FEATURE ? FEATURE_AMBER : 0;
         cinematic = cfg.cinematicHome;
         glowStyle = cfg.glowStyle;
         heroDotsShown = cfg.cinematicDots;
@@ -597,7 +598,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             @Override
             public void onChildViewAttachedToWindow(@NonNull View v) {
                 v.setAlpha(tileAlpha(grid.getChildAdapterPosition(v)));
-                if (framedCards) dimTile(v, false);
+                if (framedCards && !feature) dimTile(v, false);
             }
 
             @Override
@@ -856,6 +857,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (horizonPicture != null && !(watchRow != null && watchRow.owns(newF))) {
                 skyProgram = null;
                 horizonPicture.show(null);
+            }
+            if (feature) {
+                showFocusBar(oldF, false);
+                showFocusBar(newF, true);
             }
             if (framedCards) {
                 if (oldF != null) LampDim.set(oldF, true, true);
@@ -1807,11 +1812,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private final WatchRow.Host watchHost = new WatchRow.Host() {
         @Override
         public void onWatchFocused(View card, WatchNext.Program program) {
+            // Before the size check: Home's first focus lands here before the card is laid out.
+            if (featureBanner != null) showFeatureBanner(program);
             if (card.getWidth() == 0) return;
             placeGlass(card, AppAdapter.FOCUS_SCALE, 0);
             if (horizonGlow != null) horizonGlow.setColor(pictureColor(card), animations && !reducedMotion);
             if (horizonPicture != null) showSkyPicture(program);
-            if (featureBanner != null) showFeatureBanner(program);
             if (watchCaption != null) showWatchCaption(card, program);
             // The top shelf under the row names the program, as it names the focused dock app.
             hero.animate().cancel();
@@ -2493,8 +2499,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /**
      * Feature: the cinema room, the time and date on one small line at the top left, round icons at the top right, an
-     * amber ring on the focused tile instead of the glass, and spaced capitals over the rows. The space above the row
-     * is kept for the banner.
+     * amber ring on the focused show and an amber bar under the focused tile instead of the glass, and spaced capitals
+     * over the rows. The space above the row is kept for the banner.
      */
     private void applyFeature() {
         feature = true;
@@ -2561,6 +2567,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             moreAppsHint.setTextColor(FEATURE_MUTE);
         }
         setDockGap(Math.round(140 * density));
+        // The dock rests 48 dp lower here (the grid's top padding): as much more room at the end, to scroll it all away.
+        grid.setPadding(grid.getPaddingLeft(), grid.getPaddingTop(), grid.getPaddingRight(),
+                grid.getPaddingBottom() + Math.round(48 * density));
 
         // The icons at the top, in circles over the room; bone with an ink icon when focused.
         ViewGroup bar = findViewById(R.id.topButtons);
@@ -2596,11 +2605,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             t.setLayoutParams(lp);
             first = false;
         }
-        for (int i = 0; i < grid.getChildCount(); i++) dimTile(grid.getChildAt(i), false);
 
         // The banner behind everything; Big Shoulders is drawn in Outfit where the locale needs a system family.
         Typeface poster = own ? getResources().getFont(R.font.big_shoulders_black) : UiFont.get(this, R.string.font_medium);
-        if (watchRow != null) watchRow.setPosterCards(poster, FEATURE_TEXT, 0xFF161B26);
+        Typeface semiBold = own ? getResources().getFont(R.font.manrope_semibold) : UiFont.get(this, R.string.font_medium);
+        if (watchRow != null) watchRow.setPosterCards(poster, semiBold, FEATURE_TEXT, 0xFF161B26, FEATURE_AMBER, FEATURE_MUTE);
         featureBanner = new FeatureBanner(this, animations && !reducedMotion, FEATURE_INK, FEATURE_AMBER, FEATURE_TEXT, FEATURE_MUTE,
                 extraBold, poster, medium);
         root.addView(featureBanner, 0, new FrameLayout.LayoutParams(
@@ -2629,6 +2638,28 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         watchRow.skyPoster(program, featureBanner.pictureWidth(tall), big -> {
             if (featureProgram == program) featureBanner.showPicture(big, color);
         });
+    }
+
+    /** A dock app on the banner: its newest show in progress, or its name over its colour. */
+    private void showFeatureDock(int position, String label) {
+        WatchNext.Program program = watchRow == null ? null : watchRow.newestFor(adapter.packageAt(position));
+        if (program != null) {
+            showFeatureBanner(program);
+            return;
+        }
+        featureProgram = null;
+        featureBanner.showText("app\u0000" + label, getString(R.string.feature_open), getString(R.string.feature_nothing_on),
+                label, -1f, 0, null, null);
+        featureBanner.showPicture(null, adapter.ambientColorAt(position));
+    }
+
+    /** Shows or hides the amber bar under a grid tile; any other view has none. */
+    private void showFocusBar(View view, boolean on) {
+        if (view == null || view.getId() != R.id.card) return;
+        View bar = ((View) view.getParent()).findViewWithTag(AppAdapter.FOCUS_BAR);
+        if (bar == null) return;
+        if (animations && !reducedMotion) bar.animate().alpha(on ? 1f : 0f).setDuration(200).start();
+        else bar.setAlpha(on ? 1f : 0f);
     }
 
     /** An app's colour, from its banner. */
@@ -2719,6 +2750,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
         if (watchRow != null) showWatchRow(y);
+        if (featureBanner != null) showFeatureDock(position, label);
         if (minutesTimeline != null) minutesTimeline.setWanted(true);
         if (minutesRoom != null) minutesRoom.setColor(color, animations && !reducedMotion);
         if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
