@@ -646,8 +646,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // A single row never shows the names under its tiles (the title above the row names the app), so the
             // 7dp gap and 22dp label item_app.xml keeps for them would only lift the row: sit it that much lower.
             if (singleRow && !cfg.alwaysShowNames) want += (int) (29 * density);
-            // Feature's dock rests lower, where its mock-up has it, leaving the banner its height.
-            if (cfg.homeStyle == HomeStyle.FEATURE) want += (int) (48 * density);
+            // Feature's dock rests lower, leaving the banner its height.
+            if (cfg.homeStyle == HomeStyle.FEATURE) want += (int) (40 * density);
             if (grid.getPaddingTop() != want) {
                 grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), grid.getPaddingBottom());
                 // A vertical grid parks the dock on the new padding line by scrolling (onTileFocused); a sideways
@@ -1848,6 +1848,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             centers[found++] = r.exactCenterX();
             w = card.getWidth();
             h = AppAdapter.tileHeightPx(w);   // 16:9, even where a look makes the app tiles shorter
+            if (feature) h = Math.round(h * 0.82f);   // a little shorter, for room around the "Apps" label
         }
         if (found == 0) {
             watchRow.hide();
@@ -1863,7 +1864,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             top = Math.max(top, r.bottom);
         }
         // Centre Line names the focused show under its card: leave room for two lines and the dock's label.
-        float captionRoom = watchCaption == null ? 0f : (captionOneLine ? 44 : 64) * density;
+        float captionRoom = feature ? 8 * density : watchCaption == null ? 0f : (captionOneLine ? 44 : 64) * density;
         watchRow.showAbove(centers, w, h, shelfTop - 18 * density - captionRoom, top + 24 * density);
     }
 
@@ -2521,7 +2522,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ViewGroup.MarginLayoutParams hlp = (ViewGroup.MarginLayoutParams) header.getLayoutParams();
         hlp.setMarginStart(Math.round(17 * density));
         hlp.setMarginEnd(Math.round(17 * density));
-        ((ViewGroup.MarginLayoutParams) clockBlock.getLayoutParams()).topMargin = Math.round(8 * density);
+        ((ViewGroup.MarginLayoutParams) clockBlock.getLayoutParams()).topMargin = Math.round(4 * density);
 
         // Manrope, as in the mock-up; Outfit where the locale needs a system family (UiFont.bundled).
         boolean own = UiFont.bundled(this);
@@ -2531,26 +2532,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
         // The time in bold bone with the date beside it in slate, no divider, one small line.
         TextView clock = findViewById(R.id.clock);
-        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        clock.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
         clock.setTextColor(FEATURE_TEXT);
         clock.setTypeface(bold);
         TextView ampm = findViewById(R.id.ampm);
-        ampm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        ampm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
         ampm.setTextColor(FEATURE_TEXT);
         ampm.setTypeface(bold);
         LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) ampm.getLayoutParams();
         alp.gravity = -1;
         alp.bottomMargin = 0;
-        alp.setMarginStart(Math.round(3 * density));
+        alp.setMarginStart(Math.round(4 * density));
         ampm.setLayoutParams(alp);
         findViewById(R.id.clockDivider).setVisibility(View.GONE);
         TextView date = findViewById(R.id.date);
         date.setAllCaps(false);
         date.setLetterSpacing(0f);
-        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+        date.setTranslationY(3 * density);   // on the larger time's baseline
         date.setTextColor(FEATURE_MUTE);
         date.setTypeface(medium);
-        ((ViewGroup.MarginLayoutParams) ((View) date.getParent()).getLayoutParams()).setMarginStart(Math.round(7 * density));
+        ((ViewGroup.MarginLayoutParams) ((View) date.getParent()).getLayoutParams()).setMarginStart(Math.round(10 * density));
 
         // "CONTINUE WATCHING" and "APPS" alike, in spaced capitals; the hint a little lighter.
         if (watchRow != null) watchRow.setLabelStyle(true, 11f, FEATURE_MUTE, 0.2f, extraBold);
@@ -2567,9 +2569,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             moreAppsHint.setTextColor(FEATURE_MUTE);
         }
         setDockGap(Math.round(140 * density));
-        // The dock rests 48 dp lower here (the grid's top padding): as much more room at the end, to scroll it all away.
+        // The dock rests 40 dp lower here (the grid's top padding): as much more room at the end, to scroll it all away.
         grid.setPadding(grid.getPaddingLeft(), grid.getPaddingTop(), grid.getPaddingRight(),
-                grid.getPaddingBottom() + Math.round(48 * density));
+                grid.getPaddingBottom() + Math.round(40 * density));
 
         // The icons at the top, in circles over the room; bone with an ink icon when focused.
         ViewGroup bar = findViewById(R.id.topButtons);
@@ -2717,7 +2719,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The same distance from the label's top to the tiles as the Continue watching row's (WatchRow.LABEL_ROOM_DP).
         dockLabel.setY(dockTop - WatchRow.LABEL_ROOM_DP * density);
         moreAppsHint.setX(x);
-        moreAppsHint.setY(dockBottom + (feature ? 9 : 22) * density);
+        moreAppsHint.setY(dockBottom + (feature ? 13 : 22) * density);
         for (View v : new View[]{dockLabel, moreAppsHint}) {
             if (v.getAlpha() >= 1f) continue;
             if (animations && !reducedMotion) v.animate().alpha(1f).setDuration(200).start(); else v.setAlpha(1f);
