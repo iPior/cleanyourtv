@@ -2023,7 +2023,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Lamp's outline for the top buttons, and their icons dimmed like the tiles until focused (then amber). */
     private static final int LAMP_LINE = 0xFF2C231C, LAMP_ICON = 0xFF54493D;
 
-    /** Lamp: the dim room, and the lamp glow in place of the glass. The amber clock and the evening warmth come next. */
+    /** Lamp: the dim room, and the lamp glow in place of the glass. */
     private void applyLamp() {
         framedCards = true;
         captionOneLine = true;
